@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Any
 
 from aiohttp import web
+from homeassistant.helpers.http import HomeAssistantView
 from homeassistant.helpers.json import JSONEncoder
-from homeassistant.http import HomeAssistantView
 
 from .const import API_URL, DEFAULT_HERMES_PATH
 
