@@ -21,6 +21,35 @@ def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _safe_listdir(path: Path, limit: int = 20) -> list[str]:
+    if not path.exists() or not path.is_dir():
+        return []
+    try:
+        return sorted(item.name for item in path.iterdir())[:limit]
+    except Exception as err:
+        return [f"<error: {err}>"]
+
+
+def _file_debug(path: Path) -> dict[str, Any]:
+    exists = path.exists()
+    data: dict[str, Any] = {
+        "path": str(path),
+        "exists": exists,
+        "is_dir": path.is_dir() if exists else False,
+        "is_file": path.is_file() if exists else False,
+    }
+    if exists and path.is_file():
+        try:
+            text = path.read_text(encoding="utf-8")
+            data["size"] = len(text)
+            data["preview"] = text[:120]
+        except Exception as err:
+            data["read_error"] = str(err)
+    if exists and path.is_dir():
+        data["children"] = _safe_listdir(path)
+    return data
+
+
 def _classify_memory(text: str) -> str:
     low = text.lower()
     if "home assistant" in low or "ha " in low:
@@ -65,11 +94,22 @@ def _infer_skill_categories(skills_root: Path) -> dict[str, str]:
 
 def _build_snapshot(base_path: str) -> dict[str, Any]:
     root = Path(base_path)
-    memories_path = root / "memories" / "MEMORY.md"
-    user_path = root / "memories" / "USER.md"
-    soul_path = root / "SOUL.md"
-    usage_path = root / "skills" / ".usage.json"
+    memories_dir = root / "memories"
     skills_root = root / "skills"
+    memories_path = memories_dir / "MEMORY.md"
+    user_path = memories_dir / "USER.md"
+    soul_path = root / "SOUL.md"
+    usage_path = skills_root / ".usage.json"
+
+    debug = {
+        "root": _file_debug(root),
+        "memories_dir": _file_debug(memories_dir),
+        "skills_dir": _file_debug(skills_root),
+        "memory_file": _file_debug(memories_path),
+        "user_file": _file_debug(user_path),
+        "soul_file": _file_debug(soul_path),
+        "usage_file": _file_debug(usage_path),
+    }
 
     memory_entries = [
         {
@@ -146,6 +186,7 @@ def _build_snapshot(base_path: str) -> dict[str, Any]:
             "top_skill_count": len(top_skills),
             "tool_count": len(tool_nodes),
         },
+        "debug": debug,
         "core": {
             "title": "Hermes Core",
             "text": soul_text or "Hermes Agent core prompt",
