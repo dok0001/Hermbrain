@@ -27,37 +27,7 @@ def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def _safe_listdir(path: Path, limit: int = 20) -> list[str]:
-    if not path.exists() or not path.is_dir():
-        return []
-    try:
-        return sorted(item.name for item in path.iterdir())[:limit]
-    except Exception as err:
-        return [f"<error: {err}>"]
-
-
-def _file_debug(path: Path) -> dict[str, Any]:
-    exists = path.exists()
-    data: dict[str, Any] = {
-        "path": str(path),
-        "exists": exists,
-        "is_dir": path.is_dir() if exists else False,
-        "is_file": path.is_file() if exists else False,
-    }
-    if exists and path.is_file():
-        try:
-            text = path.read_text(encoding="utf-8")
-            data["size"] = len(text)
-            data["preview"] = text[:120]
-        except Exception as err:
-            data["read_error"] = str(err)
-    if exists and path.is_dir():
-        data["children"] = _safe_listdir(path)
-    return data
-
-
-def _resolve_root(configured_path: str) -> tuple[Path, list[dict[str, Any]]]:
-    seen: list[dict[str, Any]] = []
+def _resolve_root(configured_path: str) -> Path:
     candidates: list[str] = []
     if configured_path:
         candidates.append(configured_path)
@@ -73,15 +43,10 @@ def _resolve_root(configured_path: str) -> tuple[Path, list[dict[str, Any]]]:
             (root / "SOUL.md").exists(),
             (root / "skills" / ".usage.json").exists(),
         ]
-        seen.append({
-            "path": candidate,
-            "exists": root.exists(),
-            "score": sum(1 for hit in marker_hits if hit),
-        })
         if sum(marker_hits) >= 2:
-            return root, seen
+            return root
 
-    return Path(configured_path or DEFAULT_HERMES_PATH), seen
+    return Path(configured_path or DEFAULT_HERMES_PATH)
 
 
 def _classify_memory(text: str) -> str:
@@ -127,26 +92,13 @@ def _infer_skill_categories(skills_root: Path) -> dict[str, str]:
 
 
 def _build_snapshot(base_path: str) -> dict[str, Any]:
-    root, candidates = _resolve_root(base_path)
+    root = _resolve_root(base_path)
     memories_dir = root / "memories"
     skills_root = root / "skills"
     memories_path = memories_dir / "MEMORY.md"
     user_path = memories_dir / "USER.md"
     soul_path = root / "SOUL.md"
     usage_path = skills_root / ".usage.json"
-
-    debug = {
-        "configured_path": base_path,
-        "resolved_path": str(root),
-        "candidates": candidates,
-        "root": _file_debug(root),
-        "memories_dir": _file_debug(memories_dir),
-        "skills_dir": _file_debug(skills_root),
-        "memory_file": _file_debug(memories_path),
-        "user_file": _file_debug(user_path),
-        "soul_file": _file_debug(soul_path),
-        "usage_file": _file_debug(usage_path),
-    }
 
     memory_entries = [
         {
@@ -224,7 +176,6 @@ def _build_snapshot(base_path: str) -> dict[str, Any]:
             "top_skill_count": len(top_skills),
             "tool_count": len(tool_nodes),
         },
-        "debug": debug,
         "core": {
             "title": "Hermes Core",
             "text": soul_text or "Hermes Agent core prompt",
