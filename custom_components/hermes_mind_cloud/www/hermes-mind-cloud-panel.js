@@ -261,8 +261,16 @@ class HermesMindCloudPanel extends HTMLElement {
 
   async loadData() {
     try {
-      const response = await fetch(this.apiUrl, { credentials: 'same-origin' });
-      this.data = await response.json();
+      const apiPath = this.apiUrl.startsWith('/api/') ? this.apiUrl.slice(5) : this.apiUrl.replace(/^\//, '');
+      if (this._hass?.callApi) {
+        this.data = await this._hass.callApi('GET', apiPath);
+      } else {
+        const response = await fetch(this.apiUrl, { credentials: 'same-origin' });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+        }
+        this.data = await response.json();
+      }
       this.buildNodes();
       this.selectedNode = {
         title: this.data.core.title,
@@ -274,7 +282,7 @@ class HermesMindCloudPanel extends HTMLElement {
       this.updateFilters();
       this.updateSidePanel();
     } catch (err) {
-      this.detailsEl.innerHTML = `<h3>Could not load data</h3><div class="detail-body">${String(err)}</div>`;
+      this.detailsEl.innerHTML = `<h3>Could not load data</h3><div class="detail-body">${String(err?.message || err)}</div>`;
     }
   }
 

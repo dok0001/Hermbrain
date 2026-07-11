@@ -10,6 +10,12 @@ from homeassistant.helpers.json import JSONEncoder
 
 from .const import API_URL, DEFAULT_HERMES_PATH
 
+FALLBACK_PATHS = (
+    "/share/hermes",
+    "/share/.hermes",
+    DEFAULT_HERMES_PATH,
+)
+
 
 def _split_sections(text: str) -> list[str]:
     return [part.strip() for part in text.split("§") if part.strip()]
@@ -48,6 +54,34 @@ def _file_debug(path: Path) -> dict[str, Any]:
     if exists and path.is_dir():
         data["children"] = _safe_listdir(path)
     return data
+
+
+def _resolve_root(configured_path: str) -> tuple[Path, list[dict[str, Any]]]:
+    seen: list[dict[str, Any]] = []
+    candidates: list[str] = []
+    if configured_path:
+        candidates.append(configured_path)
+    for path in FALLBACK_PATHS:
+        if path not in candidates:
+            candidates.append(path)
+
+    for candidate in candidates:
+        root = Path(candidate)
+        marker_hits = [
+            (root / "memories" / "MEMORY.md").exists(),
+            (root / "memories" / "USER.md").exists(),
+            (root / "SOUL.md").exists(),
+            (root / "skills" / ".usage.json").exists(),
+        ]
+        seen.append({
+            "path": candidate,
+            "exists": root.exists(),
+            "score": sum(1 for hit in marker_hits if hit),
+        })
+        if sum(marker_hits) >= 2:
+            return root, seen
+
+    return Path(configured_path or DEFAULT_HERMES_PATH), seen
 
 
 def _classify_memory(text: str) -> str:
@@ -93,7 +127,7 @@ def _infer_skill_categories(skills_root: Path) -> dict[str, str]:
 
 
 def _build_snapshot(base_path: str) -> dict[str, Any]:
-    root = Path(base_path)
+    root, candidates = _resolve_root(base_path)
     memories_dir = root / "memories"
     skills_root = root / "skills"
     memories_path = memories_dir / "MEMORY.md"
@@ -102,6 +136,9 @@ def _build_snapshot(base_path: str) -> dict[str, Any]:
     usage_path = skills_root / ".usage.json"
 
     debug = {
+        "configured_path": base_path,
+        "resolved_path": str(root),
+        "candidates": candidates,
         "root": _file_debug(root),
         "memories_dir": _file_debug(memories_dir),
         "skills_dir": _file_debug(skills_root),
@@ -180,6 +217,7 @@ def _build_snapshot(base_path: str) -> dict[str, Any]:
     return {
         "meta": {
             "base_path": base_path,
+            "resolved_path": str(root),
             "memory_count": len(memory_entries),
             "profile_count": len(user_entries),
             "skill_count": len(skills),
