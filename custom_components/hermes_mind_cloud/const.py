@@ -1,0 +1,8 @@
+DOMAIN = "hermes_mind_cloud"
+PANEL_TITLE = "Hermes Mind Cloud"
+PANEL_ICON = "mdi:brain"
+PANEL_URL_PATH = "hermes-mind-cloud"
+WEBCOMPONENT_NAME = "hermes-mind-cloud-panel"
+STATIC_URL = "/hermes_mind_cloud_static"
+API_URL = "/api/hermes_mind_cloud/data"
+DEFAULT_HERMES_PATH = "/config/.hermes"

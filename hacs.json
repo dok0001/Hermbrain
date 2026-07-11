@@ -1,0 +1,9 @@
+{
+  "name": "Hermes Mind Cloud",
+  "country": ["SE"],
+  "homeassistant": ">=2024.6.0",
+  "render_readme": true,
+  "content_in_root": false,
+  "domains": ["hermes_mind_cloud"],
+  "iot_class": "Local Polling"
+}

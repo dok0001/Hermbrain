@@ -1,0 +1,11 @@
+{
+  "domain": "hermes_mind_cloud",
+  "name": "Hermes Mind Cloud",
+  "version": "0.1.0",
+  "documentation": "https://hermes-agent.nousresearch.com/docs",
+  "integration_type": "service",
+  "config_flow": true,
+  "iot_class": "local_polling",
+  "requirements": [],
+  "codeowners": []
+}

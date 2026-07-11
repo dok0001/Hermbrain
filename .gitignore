@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.DS_Store
+*.zip
+custom_components/*/__pycache__/
+custom_components/*/*.pyc
