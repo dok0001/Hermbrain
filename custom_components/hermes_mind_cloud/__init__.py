@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
-from homeassistant.components.frontend import async_remove_panel
-from homeassistant.components.http import StaticPathConfig
-from homeassistant.components.panel_custom import async_register_panel
-from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
 
-from .api import HermesMindCloudDataView
 from .const import (
     API_URL,
     DEFAULT_HERMES_PATH,
@@ -21,11 +18,17 @@ from .const import (
 )
 
 
-async def async_setup(hass: HomeAssistant, config) -> bool:
+async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    from homeassistant.components.frontend import async_remove_panel  # noqa: F401
+    from homeassistant.components.http import StaticPathConfig
+    from homeassistant.components.panel_custom import async_register_panel
+
+    from .api import HermesMindCloudDataView
+
     base_path = entry.data.get("hermes_path", DEFAULT_HERMES_PATH)
     www_path = Path(__file__).parent / "www"
 
@@ -60,6 +63,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    from homeassistant.components.frontend import async_remove_panel
+
     async_remove_panel(hass, PANEL_URL_PATH, warn_if_unknown=False)
     if DOMAIN in hass.data:
         hass.data[DOMAIN].pop(entry.entry_id, None)
