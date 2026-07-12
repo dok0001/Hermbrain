@@ -20,3 +20,13 @@ HACS-compatible Home Assistant custom integration that adds a sidebar panel visu
 ## Notes
 - Requires the Hermes data directory to exist at `/config/.hermes` inside the Home Assistant environment.
 - If HACS install fails and you previously copied the component manually, remove any old `/config/custom_components/hermes_mind_cloud` folder first, then retry.
+
+## Release check
+- Before publishing a HACS release, run:
+  - `python3 scripts/verify_release.py --version <version> --zip-layout root`
+- This verifies:
+  - live manifest version
+  - HACS repo manifest version
+  - `hacs.json` filename
+  - release zip presence and layout
+  - latest GitHub release tag + asset
