@@ -342,7 +342,7 @@ class HermesMindCloudPanel extends HTMLElement {
                 <button class="toggle-btn" data-section-toggle="hud">Minimera</button>
               </div>
               <div class="section-body" data-section-body="hud">
-                <div class="sub">Fas 5: mjukare constellation-look med svagare klusterhalos, mindre tydliga 3D-bollar och mer fokus på noder, labels och relationer.</div>
+                <div class="sub">Fas 5.1: klusterhalos är nu nästan osynliga så scenen bärs främst av noder, labels, glow och relationer.</div>
                 <div class="presets" id="presets"></div>
                 <div class="filters" id="filters"></div>
                 <div class="legend">
@@ -588,10 +588,10 @@ class HermesMindCloudPanel extends HTMLElement {
     this.selectedLinks = [];
 
     const shells = {
-      memory: { pos: [-75, -6, 10], scale: [198, 118, 160], color: 0x5fdcff },
-      profile: { pos: [86, -36, -18], scale: [176, 106, 140], color: 0xffb86d },
-      skill: { pos: [12, 62, 26], scale: [252, 148, 226], color: 0x9d76ff },
-      tool: { pos: [0, 0, -88], scale: [154, 94, 122], color: 0x74ebb2 },
+      memory: { pos: [-75, -6, 10], scale: [190, 112, 152], color: 0x5fdcff },
+      profile: { pos: [86, -36, -18], scale: [168, 100, 132], color: 0xffb86d },
+      skill: { pos: [12, 62, 26], scale: [240, 140, 214], color: 0x9d76ff },
+      tool: { pos: [0, 0, -88], scale: [146, 88, 116], color: 0x74ebb2 },
     };
     for (const [type, shell] of Object.entries(shells)) {
       const mesh = new THREE.Mesh(
@@ -599,7 +599,7 @@ class HermesMindCloudPanel extends HTMLElement {
         new THREE.MeshBasicMaterial({
           color: shell.color,
           transparent: true,
-          opacity: 0.008,
+          opacity: 0.003,
           wireframe: false,
           side: THREE.DoubleSide,
           depthWrite: false,
@@ -608,7 +608,7 @@ class HermesMindCloudPanel extends HTMLElement {
       mesh.position.set(...shell.pos);
       mesh.scale.set(...shell.scale);
       mesh.userData.type = type;
-      mesh.userData.baseOpacity = 0.008;
+      mesh.userData.baseOpacity = 0.003;
       this.graphRoot.add(mesh);
       this.clusterShells.push(mesh);
     }
@@ -959,10 +959,10 @@ class HermesMindCloudPanel extends HTMLElement {
     for (const shell of this.clusterShells || []) {
       const emphasize = selectedType ? shell.userData.type === selectedType : true;
       shell.material.opacity = this.viewPreset === 'minimal'
-        ? 0.002
+        ? 0.0006
         : this.viewPreset === 'constellation'
-          ? 0.004
-          : emphasize ? 0.018 : 0.003;
+          ? 0.0015
+          : emphasize ? 0.006 : 0.0009;
       shell.rotation.y += this.autoDrift * dt * 0.18;
       shell.rotation.x += this.autoDrift * dt * 0.08;
     }
