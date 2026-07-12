@@ -27254,31 +27254,49 @@ var HermesMindCloudPanel = class extends HTMLElement {
           display: block;
           height: 100%;
           color: #eef3ff;
-          --bg0: #040711;
-          --bg1: #091125;
-          --bg2: #0d1630;
-          --line: rgba(126, 180, 255, 0.16);
-          --panel: rgba(10, 15, 31, 0.78);
-          --border: rgba(130, 175, 255, 0.12);
+          --bg0: #02030a;
+          --bg1: #070312;
+          --bg2: #11061f;
+          --line: rgba(255, 56, 179, 0.18);
+          --panel: rgba(12, 7, 28, 0.78);
+          --border: rgba(255, 71, 198, 0.16);
           font-family: Inter, system-ui, sans-serif;
         }
         * { box-sizing: border-box; }
         .layout {
+          position: relative;
           display: grid;
           grid-template-columns: minmax(0, 1.78fr) minmax(300px, 0.82fr);
           height: 100vh;
           background:
-            radial-gradient(circle at 18% 16%, rgba(56, 124, 255, 0.10), transparent 26%),
-            radial-gradient(circle at 74% 14%, rgba(116, 76, 255, 0.09), transparent 22%),
-            radial-gradient(circle at 50% 58%, rgba(66, 235, 255, 0.05), transparent 24%),
-            linear-gradient(180deg, #08101f, #03060f 64%, #02040b);
+            radial-gradient(circle at 18% 16%, rgba(255, 45, 167, 0.16), transparent 24%),
+            radial-gradient(circle at 74% 14%, rgba(121, 56, 255, 0.15), transparent 22%),
+            radial-gradient(circle at 50% 58%, rgba(32, 255, 240, 0.08), transparent 22%),
+            linear-gradient(180deg, #09030f, #04030b 58%, #020207);
+        }
+        .layout::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background: repeating-linear-gradient(180deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 4px);
+          mix-blend-mode: soft-light;
+          opacity: 0.28;
         }
         .scene-wrap {
           position: relative;
           min-height: 60vh;
           overflow: hidden;
-          border-right: 1px solid rgba(130, 175, 255, 0.08);
-          box-shadow: inset -30px 0 80px rgba(6, 10, 24, 0.36);
+          border-right: 1px solid rgba(255, 66, 200, 0.10);
+          box-shadow: inset -30px 0 90px rgba(10, 3, 24, 0.54), inset 0 0 140px rgba(31, 245, 255, 0.05);
+        }
+        .scene-wrap::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          z-index: 1;
+          background: radial-gradient(circle at 50% 50%, transparent 38%, rgba(255, 33, 170, 0.06) 70%, rgba(0,0,0,0.22) 100%);
         }
         #scene {
           position: absolute;
@@ -27306,19 +27324,20 @@ var HermesMindCloudPanel = class extends HTMLElement {
         }
         .headline {
           pointer-events: auto;
-          background: linear-gradient(180deg, rgba(7,16,38,0.72), rgba(5,10,28,0.18));
-          border: 1px solid rgba(90, 238, 255, 0.22);
+          background: linear-gradient(180deg, rgba(18,8,34,0.82), rgba(8,6,24,0.28));
+          border: 1px solid rgba(255, 77, 193, 0.28);
           border-radius: 18px;
           padding: 12px 14px;
-          backdrop-filter: blur(12px);
-          box-shadow: 0 0 0 1px rgba(93, 235, 255, 0.06), 0 0 28px rgba(63, 214, 255, 0.12), 0 14px 44px rgba(0, 0, 0, 0.18);
+          backdrop-filter: blur(14px);
+          box-shadow: 0 0 0 1px rgba(255, 77, 193, 0.08), 0 0 24px rgba(255, 40, 164, 0.16), 0 0 48px rgba(58, 230, 255, 0.10), 0 14px 44px rgba(0, 0, 0, 0.22);
         }
         .eyebrow {
           font-size: 11px;
-          letter-spacing: 0.18em;
+          letter-spacing: 0.22em;
           text-transform: uppercase;
-          color: #90b9ff;
+          color: #ff5fc9;
           margin-bottom: 6px;
+          text-shadow: 0 0 12px rgba(255, 74, 193, 0.44);
         }
         h1 {
           margin: 0;
@@ -27352,8 +27371,8 @@ var HermesMindCloudPanel = class extends HTMLElement {
           box-shadow: inset 0 0 12px rgba(71, 197, 255, 0.06);
         }
         .filters button.active, .presets button.active {
-          background: linear-gradient(180deg, rgba(26, 255, 240, 0.28), rgba(86, 76, 255, 0.22));
-          box-shadow: 0 0 22px rgba(43, 233, 255, 0.20), inset 0 0 18px rgba(90, 195, 255, 0.12);
+          background: linear-gradient(180deg, rgba(255, 54, 182, 0.30), rgba(51, 250, 255, 0.18));
+          box-shadow: 0 0 26px rgba(255, 54, 182, 0.22), 0 0 20px rgba(43, 233, 255, 0.18), inset 0 0 18px rgba(90, 195, 255, 0.12);
         }
         .section-head {
           display: flex;
@@ -27419,9 +27438,9 @@ var HermesMindCloudPanel = class extends HTMLElement {
         }
         .label.visible { opacity: 1; }
         .label.active {
-          background: rgba(14, 30, 64, 0.92);
-          border-color: rgba(77, 246, 255, 0.50);
-          box-shadow: 0 0 34px rgba(61, 237, 255, 0.24);
+          background: rgba(30, 10, 48, 0.94);
+          border-color: rgba(255, 79, 195, 0.52);
+          box-shadow: 0 0 18px rgba(255, 57, 179, 0.20), 0 0 38px rgba(61, 237, 255, 0.18);
         }
         .tooltip {
           position: absolute;
@@ -27524,7 +27543,7 @@ var HermesMindCloudPanel = class extends HTMLElement {
                 <button class="toggle-btn" data-section-toggle="hud">Minimera</button>
               </div>
               <div class="section-body" data-section-body="hud">
-                <div class="sub">Neon sci-fi-pass: mindre noder, starkare glow, mer energilinjer och ett mer futuristiskt hologram-uttryck.</div>
+                <div class="sub">Cyberpunk-pass: svartlila djup, hetare magenta/cyan-neon, scanline-hologramk\xE4nsla och t\xE4tare energin\xE4t utan st\xF6rre bollar.</div>
                 <div class="presets" id="presets"></div>
                 <div class="filters" id="filters"></div>
                 <div class="legend">
@@ -27592,8 +27611,8 @@ var HermesMindCloudPanel = class extends HTMLElement {
   }
   initThree() {
     this.scene = new Scene();
-    this.scene.background = new Color(264212);
-    this.scene.fog = new FogExp2(330261, 26e-4);
+    this.scene.background = new Color(328203);
+    this.scene.fog = new FogExp2(656146, 31e-4);
     this.camera = new PerspectiveCamera(46, 1, 0.1, 2e3);
     this.camera.position.set(0, 20, 320);
     this.renderer = new WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
@@ -27611,15 +27630,15 @@ var HermesMindCloudPanel = class extends HTMLElement {
     this.controls.maxDistance = 520;
     this.controls.autoRotate = false;
     this.controls.target.copy(this.cameraTarget);
-    const ambient = new AmbientLight(9434623, 0.95);
+    const ambient = new AmbientLight(13004287, 0.72);
     this.scene.add(ambient);
-    const keyLight = new PointLight(4323071, 2.2, 1400, 2);
+    const keyLight = new PointLight(1505279, 2.45, 1450, 2);
     keyLight.position.set(0, 40, 35);
     this.scene.add(keyLight);
-    const fillLight = new PointLight(8805375, 0.95, 1200, 2);
+    const fillLight = new PointLight(16725426, 1.18, 1250, 2);
     fillLight.position.set(-180, 80, 220);
     this.scene.add(fillLight);
-    const rimLight = new PointLight(65480, 0.68, 1e3, 2);
+    const rimLight = new PointLight(10813215, 0.56, 960, 2);
     rimLight.position.set(210, -40, -180);
     this.scene.add(rimLight);
     const coreGlow = new Mesh(
@@ -27718,7 +27737,7 @@ var HermesMindCloudPanel = class extends HTMLElement {
           drift: 0.18 + idx % 5 * 0.05,
           wobble: 3.5 + idx % 4 * 1.2,
           phase: theta,
-          size: cluster.baseSize * 0.76 + (item.importance || 0.4) * 2.45,
+          size: cluster.baseSize * 0.68 + (item.importance || 0.4) * 2.12,
           alpha: 0.46 + (item.importance || 0.4) * 0.42
         });
       });
@@ -27825,7 +27844,7 @@ var HermesMindCloudPanel = class extends HTMLElement {
     if (linkPositions.length) {
       const lineGeo = new BufferGeometry();
       lineGeo.setAttribute("position", new Float32BufferAttribute(linkPositions, 3));
-      const lineMat = new LineBasicMaterial({ color: 5369855, transparent: true, opacity: 0.11 });
+      const lineMat = new LineBasicMaterial({ color: 16727732, transparent: true, opacity: 0.13 });
       const lines = new LineSegments(lineGeo, lineMat);
       this.graphRoot.add(lines);
       this.lines = lines;
@@ -28092,11 +28111,11 @@ var HermesMindCloudPanel = class extends HTMLElement {
       const presetScale = this.viewPreset === "minimal" ? 0.92 : this.viewPreset === "explore" ? 0.98 : this.viewPreset === "constellation" ? 0.95 : 0.96;
       const scale = active ? node.size * 1.26 : related ? node.size * presetScale : node.size * 0.84;
       mesh.scale.lerp(new Vector3(scale, scale, scale), 0.16);
-      mesh.material.emissiveIntensity = active ? 2.1 : directlyRelated ? 1.42 : related ? 1.08 : 0.42;
-      mesh.material.opacity = active ? 1 : directlyRelated ? Math.min(1, node.alpha) : related ? Math.min(0.98, node.alpha) : Math.max(0.1, node.alpha * 0.28);
+      mesh.material.emissiveIntensity = active ? 2.35 : directlyRelated ? 1.58 : related ? 1.18 : 0.46;
+      mesh.material.opacity = active ? 1 : directlyRelated ? Math.min(1, node.alpha) : related ? Math.min(0.98, node.alpha) : Math.max(0.1, node.alpha * 0.26);
       if (mesh.userData.aura) {
-        mesh.userData.aura.material.opacity = active ? 0.28 : directlyRelated ? 0.18 : related ? 0.11 : 0.04;
-        const auraScale = active ? 2.35 : directlyRelated ? 2.08 : 1.95;
+        mesh.userData.aura.material.opacity = active ? 0.34 : directlyRelated ? 0.22 : related ? 0.13 : 0.05;
+        const auraScale = active ? 2.46 : directlyRelated ? 2.16 : 2;
         mesh.userData.aura.scale.setScalar(auraScale);
       }
     }
@@ -28118,7 +28137,7 @@ var HermesMindCloudPanel = class extends HTMLElement {
         pos[k++] = b.position.z;
       }
       this.lines.geometry.attributes.position.needsUpdate = true;
-      this.lines.material.opacity = this.viewPreset === "minimal" ? 0.045 : this.viewPreset === "constellation" ? 0.17 : selectedType ? 0.065 : this.viewPreset === "explore" ? 0.14 : 0.11;
+      this.lines.material.opacity = this.viewPreset === "minimal" ? 0.052 : this.viewPreset === "constellation" ? 0.19 : selectedType ? 0.078 : this.viewPreset === "explore" ? 0.16 : 0.125;
     }
     if (this.selectedLines) {
       this.selectedLines.visible = (this.selectedLinks?.length || 0) > 0 && this.viewPreset !== "minimal";
