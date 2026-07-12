@@ -8,9 +8,10 @@ class HermesMindCloudPanel extends HTMLElement {
     this.selectedNode = null;
     this.hoveredNode = null;
     this.dragging = false;
-    this.rotation = { x: -0.35, y: 0.55 };
+    this.rotation = { x: -0.22, y: 0.28 };
     this.spin = 0;
     this.lastTime = performance.now();
+    this.autoSpin = 0.00003;
     this.starfield = Array.from({ length: 180 }, () => ({
       x: Math.random() * 2 - 1,
       y: Math.random() * 2 - 1,
@@ -297,28 +298,42 @@ class HermesMindCloudPanel extends HTMLElement {
   buildNodes() {
     if (!this.data) return;
     const groups = [];
-    const pack = (items, type, radius, spread, startAngle = 0) => {
+    const clusters = {
+      memory: { center: [-70, -12, 10], spread: [88, 56, 74], baseSize: 5.8 },
+      profile: { center: [82, -42, -20], spread: [82, 52, 68], baseSize: 5.2 },
+      skill: { center: [18, 56, 30], spread: [126, 74, 116], baseSize: 5.4 },
+      tool: { center: [0, 0, -82], spread: [72, 44, 62], baseSize: 5.0 },
+    };
+    const jitter = (seed, scale) => (Math.sin(seed * 12.9898) + Math.cos(seed * 78.233)) * 0.5 * scale;
+    const pack = (items, type) => {
+      const cluster = clusters[type];
       items.forEach((item, idx) => {
-        const angle = startAngle + (idx / Math.max(items.length, 1)) * Math.PI * 2;
-        const lift = ((idx % 5) - 2) * spread;
+        const s = idx + 1;
+        const theta = (idx / Math.max(items.length, 1)) * Math.PI * 2.35 + jitter(s, 0.35);
+        const phi = ((idx * 1.618) % items.length) / Math.max(items.length, 1) * Math.PI;
+        const radial = 0.4 + ((idx % 7) / 6) * 0.6;
+        const x = cluster.center[0] + Math.cos(theta) * Math.sin(phi + 0.35) * cluster.spread[0] * radial + jitter(s * 0.7, 16);
+        const y = cluster.center[1] + Math.sin(theta * 1.3) * cluster.spread[1] * radial + jitter(s * 1.1, 10);
+        const z = cluster.center[2] + Math.cos(phi) * cluster.spread[2] * radial + jitter(s * 0.4, 14);
         groups.push({
           ...item,
           type,
-          orbitRadius: radius + (idx % 3) * 22,
-          baseAngle: angle,
-          speed: 0.00016 + (idx % 7) * 0.00004,
-          yBand: lift,
-          zBand: ((idx % 4) - 1.5) * spread * 1.4,
-          size: 4 + (item.importance || 0.4) * 10,
-          alpha: 0.55 + (item.importance || 0.4) * 0.45,
+          cx: x,
+          cy: y,
+          cz: z,
+          drift: 0.00004 + (idx % 5) * 0.000012,
+          wobble: 10 + (idx % 4) * 4,
+          phase: theta,
+          size: cluster.baseSize + (item.importance || 0.4) * 8,
+          alpha: 0.42 + (item.importance || 0.4) * 0.4,
         });
       });
     };
 
-    pack(this.data.memories, 'memory', 140, 26, 0.2);
-    pack(this.data.profile, 'profile', 210, 22, 1.1);
-    pack(this.data.skills, 'skill', 290, 34, 2.4);
-    pack(this.data.tools, 'tool', 370, 28, 0.6);
+    pack(this.data.memories, 'memory');
+    pack(this.data.profile, 'profile');
+    pack(this.data.skills, 'skill');
+    pack(this.data.tools, 'tool');
     this.nodes = groups;
     this.updateTopSkills();
   }
@@ -432,10 +447,10 @@ class HermesMindCloudPanel extends HTMLElement {
   }
 
   project(node, t) {
-    const a = node.baseAngle + t * node.speed * 60;
-    let x = Math.cos(a) * node.orbitRadius;
-    let z = Math.sin(a) * node.orbitRadius + node.zBand;
-    let y = node.yBand + Math.sin(a * 1.7 + node.orbitRadius * 0.02) * 18;
+    const tt = t * node.drift * 60;
+    let x = node.cx + Math.cos(tt + node.phase) * node.wobble;
+    let y = node.cy + Math.sin(tt * 1.7 + node.phase * 0.7) * (node.wobble * 0.45);
+    let z = node.cz + Math.sin(tt * 1.15 + node.phase) * (node.wobble * 0.9);
 
     const ry = this.rotation.y + this.spin;
     const cosY = Math.cos(ry), sinY = Math.sin(ry);
@@ -447,14 +462,16 @@ class HermesMindCloudPanel extends HTMLElement {
     let dy = y * cosX - dz * sinX;
     dz = y * sinX + dz * cosX;
 
-    const depth = 700 / (700 + dz + 250);
+    const fog = Math.max(0, 1 - (dz + 260) / 980);
+    const depth = 900 / (900 + dz + 380);
     return {
       x: this.center.x + dx * depth,
       y: this.center.y + dy * depth,
       z: dz,
       depth,
-      r: Math.max(2.5, node.size * depth),
-      alpha: Math.max(0.08, Math.min(1, node.alpha * depth)),
+      fog,
+      r: Math.max(1.8, node.size * depth),
+      alpha: Math.max(0.05, Math.min(1, node.alpha * depth * (0.55 + fog * 0.7))),
     };
   }
 
@@ -476,17 +493,24 @@ class HermesMindCloudPanel extends HTMLElement {
 
   drawBackground(ctx) {
     ctx.clearRect(0, 0, this.width, this.height);
-    const g = ctx.createRadialGradient(this.center.x, this.center.y - 50, 40, this.center.x, this.center.y, Math.max(this.width, this.height) * 0.7);
-    g.addColorStop(0, 'rgba(36,80,160,0.14)');
-    g.addColorStop(0.45, 'rgba(16,28,72,0.12)');
+    const g = ctx.createRadialGradient(this.center.x, this.center.y - 30, 50, this.center.x, this.center.y, Math.max(this.width, this.height) * 0.78);
+    g.addColorStop(0, 'rgba(30,86,170,0.18)');
+    g.addColorStop(0.32, 'rgba(19,34,82,0.14)');
+    g.addColorStop(0.72, 'rgba(7,12,28,0.08)');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g;
+    ctx.fillRect(0, 0, this.width, this.height);
+
+    const vignette = ctx.createRadialGradient(this.center.x, this.center.y, this.width * 0.12, this.center.x, this.center.y, this.width * 0.72);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, 'rgba(2,5,14,0.44)');
+    ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, this.width, this.height);
 
     for (const s of this.starfield) {
       const sx = (s.x * 0.5 + 0.5) * this.width;
       const sy = (s.y * 0.5 + 0.5) * this.height;
-      ctx.fillStyle = `rgba(170,205,255,${0.15 + s.z * 0.35})`;
+      ctx.fillStyle = `rgba(170,205,255,${0.09 + s.z * 0.22})`;
       ctx.beginPath();
       ctx.arc(sx, sy, s.s, 0, Math.PI * 2);
       ctx.fill();
@@ -494,23 +518,23 @@ class HermesMindCloudPanel extends HTMLElement {
   }
 
   drawCore(ctx, t) {
-    const pulse = 1 + Math.sin(t * 0.0018) * 0.06;
-    const r = 52 * pulse;
-    const grad = ctx.createRadialGradient(this.center.x, this.center.y, 0, this.center.x, this.center.y, r * 2.6);
-    grad.addColorStop(0, 'rgba(165,239,255,0.95)');
-    grad.addColorStop(0.22, 'rgba(84,192,255,0.85)');
-    grad.addColorStop(0.55, 'rgba(83,104,255,0.38)');
+    const pulse = 1 + Math.sin(t * 0.0012) * 0.04;
+    const r = 44 * pulse;
+    const grad = ctx.createRadialGradient(this.center.x, this.center.y, 0, this.center.x, this.center.y, r * 3.2);
+    grad.addColorStop(0, 'rgba(192,244,255,0.98)');
+    grad.addColorStop(0.18, 'rgba(103,210,255,0.88)');
+    grad.addColorStop(0.42, 'rgba(78,132,255,0.35)');
     grad.addColorStop(1, 'rgba(83,104,255,0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(this.center.x, this.center.y, r * 2.6, 0, Math.PI * 2);
+    ctx.arc(this.center.x, this.center.y, r * 3.2, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = 'rgba(160,220,255,0.35)';
-    ctx.lineWidth = 1.2;
-    for (let i = 0; i < 3; i++) {
+    ctx.strokeStyle = 'rgba(160,220,255,0.18)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 4; i++) {
       ctx.beginPath();
-      ctx.ellipse(this.center.x, this.center.y, 86 + i * 20, 20 + i * 8, this.spin * 3 + i * 0.85, 0, Math.PI * 2);
+      ctx.ellipse(this.center.x, this.center.y, 74 + i * 18, 22 + i * 7, this.spin * 1.3 + i * 0.72, 0, Math.PI * 2);
       ctx.stroke();
     }
   }
@@ -518,7 +542,7 @@ class HermesMindCloudPanel extends HTMLElement {
   animate(time) {
     const dt = Math.min(32, time - this.lastTime);
     this.lastTime = time;
-    this.spin += this.dragging ? 0 : dt * 0.00012;
+    this.spin += this.dragging ? 0 : dt * this.autoSpin;
     const ctx = this.ctx;
     if (!ctx || !this.width || !this.height) {
       this.raf = requestAnimationFrame((t) => this.animate(t));
@@ -533,39 +557,80 @@ class HermesMindCloudPanel extends HTMLElement {
       return node;
     }).sort((a, b) => a.screen.z - b.screen.z);
 
-    ctx.lineWidth = 1;
-    for (const node of visible) {
-      const { x, y, alpha } = node.screen;
-      ctx.strokeStyle = `rgba(126,180,255,${0.05 + alpha * 0.12})`;
+    const linkTarget = this.selectedNode || this.hoveredNode;
+    for (let i = 0; i < visible.length; i++) {
+      const node = visible[i];
+      const { x, y, z, alpha } = node.screen;
+      ctx.lineWidth = 0.8 + node.screen.depth * 0.45;
+      ctx.strokeStyle = `rgba(126,180,255,${0.03 + alpha * 0.09})`;
       ctx.beginPath();
       ctx.moveTo(this.center.x, this.center.y);
       ctx.lineTo(x, y);
       ctx.stroke();
+
+      const maxLinks = node.importance > 0.72 ? 3 : 2;
+      let links = 0;
+      for (let j = i + 1; j < visible.length && links < maxLinks; j++) {
+        const other = visible[j];
+        const dx = other.screen.x - x;
+        const dy = other.screen.y - y;
+        const dz = other.screen.z - z;
+        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz * 0.18);
+        if (dist < 92) {
+          ctx.strokeStyle = `rgba(132,196,255,${0.02 + Math.min(alpha, other.screen.alpha) * 0.12})`;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(other.screen.x, other.screen.y);
+          ctx.stroke();
+          links += 1;
+        }
+      }
+
+      if (linkTarget && linkTarget.id === node.id) {
+        for (const other of visible) {
+          if (other === node) continue;
+          const dx = other.screen.x - x;
+          const dy = other.screen.y - y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < 155) {
+            ctx.strokeStyle = 'rgba(206,239,255,0.22)';
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(other.screen.x, other.screen.y);
+            ctx.stroke();
+          }
+        }
+      }
     }
 
     for (const node of visible) {
-      const { x, y, r, alpha } = node.screen;
+      const { x, y, r, alpha, fog } = node.screen;
       const color = this.colorFor(node);
-      ctx.shadowBlur = this.hoveredNode === node || this.selectedNode === node ? 26 : 16;
+      ctx.shadowBlur = this.hoveredNode === node || this.selectedNode === node ? 32 : 18 + fog * 8;
       ctx.shadowColor = color;
-      ctx.fillStyle = color.replace(')', '');
       ctx.globalAlpha = alpha;
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fillStyle = color;
       ctx.fill();
 
-      ctx.globalAlpha = alpha * 0.16;
+      ctx.globalAlpha = alpha * 0.11;
       ctx.beginPath();
-      ctx.arc(x, y, r * 3.2, 0, Math.PI * 2);
+      ctx.arc(x, y, r * 3.9, 0, Math.PI * 2);
       ctx.fill();
 
-      if (this.hoveredNode === node || this.selectedNode === node || (node.importance > 0.78 && node.screen.depth > 0.82)) {
+      ctx.globalAlpha = Math.min(1, alpha * 0.75 + 0.12);
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.beginPath();
+      ctx.arc(x - r * 0.24, y - r * 0.24, Math.max(0.9, r * 0.22), 0, Math.PI * 2);
+      ctx.fill();
+
+      if (this.hoveredNode === node || this.selectedNode === node || (node.importance > 0.86 && node.screen.depth > 0.92)) {
         ctx.shadowBlur = 0;
-        ctx.globalAlpha = Math.min(1, alpha + 0.15);
-        ctx.fillStyle = '#e7f0ff';
+        ctx.globalAlpha = Math.min(1, alpha + 0.14);
+        ctx.fillStyle = '#edf4ff';
         ctx.font = '12px Inter, system-ui, sans-serif';
-        ctx.fillText(node.title.slice(0, 30), x + r + 8, y - r - 4);
+        ctx.fillText(node.title.slice(0, 30), x + r + 10, y - r - 4);
       }
     }
 
