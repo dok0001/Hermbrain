@@ -27521,7 +27521,7 @@ var HermesMindCloudPanel = class extends HTMLElement {
                 <button class="toggle-btn" data-section-toggle="hud">Minimera</button>
               </div>
               <div class="section-body" data-section-body="hud">
-                <div class="sub">Fas 4: labels i rymden, tydligare relationer, preset-l\xE4gen och starkare fokus runt den nod du valt.</div>
+                <div class="sub">Fas 5: mjukare constellation-look med svagare klusterhalos, mindre tydliga 3D-bollar och mer fokus p\xE5 noder, labels och relationer.</div>
                 <div class="presets" id="presets"></div>
                 <div class="filters" id="filters"></div>
                 <div class="legend">
@@ -27745,19 +27745,27 @@ var HermesMindCloudPanel = class extends HTMLElement {
     this.labelNodes = [];
     this.selectedLinks = [];
     const shells = {
-      memory: { pos: [-75, -6, 10], scale: [210, 126, 168], color: 6282495 },
-      profile: { pos: [86, -36, -18], scale: [186, 114, 146], color: 16758893 },
-      skill: { pos: [12, 62, 26], scale: [268, 156, 238], color: 10319615 },
-      tool: { pos: [0, 0, -88], scale: [164, 100, 130], color: 7662514 }
+      memory: { pos: [-75, -6, 10], scale: [198, 118, 160], color: 6282495 },
+      profile: { pos: [86, -36, -18], scale: [176, 106, 140], color: 16758893 },
+      skill: { pos: [12, 62, 26], scale: [252, 148, 226], color: 10319615 },
+      tool: { pos: [0, 0, -88], scale: [154, 94, 122], color: 7662514 }
     };
     for (const [type, shell] of Object.entries(shells)) {
       const mesh = new Mesh(
-        new SphereGeometry(1, 32, 32),
-        new MeshBasicMaterial({ color: shell.color, transparent: true, opacity: 0.032, wireframe: true })
+        new SphereGeometry(1, 28, 28),
+        new MeshBasicMaterial({
+          color: shell.color,
+          transparent: true,
+          opacity: 8e-3,
+          wireframe: false,
+          side: DoubleSide,
+          depthWrite: false
+        })
       );
       mesh.position.set(...shell.pos);
       mesh.scale.set(...shell.scale);
       mesh.userData.type = type;
+      mesh.userData.baseOpacity = 8e-3;
       this.graphRoot.add(mesh);
       this.clusterShells.push(mesh);
     }
@@ -27894,6 +27902,7 @@ var HermesMindCloudPanel = class extends HTMLElement {
     const presets = [
       ["minimal", "Minimal"],
       ["focus", "Focus"],
+      ["constellation", "Constellation"],
       ["explore", "Explore"]
     ];
     this.presetEl.innerHTML = "";
@@ -27913,6 +27922,9 @@ var HermesMindCloudPanel = class extends HTMLElement {
         if (value === "explore") {
           this.mode = "all";
           this.sectionState.skills = true;
+        }
+        if (value === "constellation") {
+          this.mode = "all";
         }
         this.applySectionState();
         this.applyVisibility();
@@ -28030,7 +28042,7 @@ var HermesMindCloudPanel = class extends HTMLElement {
       const pos = mesh.position.clone().project(this.camera);
       const visible = pos.z < 1 && pos.z > -1;
       const related = !selectedType || node.type === selectedType || node.id === selectedId;
-      const shouldShow = visible && (this.viewPreset === "explore" || node.id === selectedId || related && (node.importance || 0) >= 0.72);
+      const shouldShow = visible && (this.viewPreset === "explore" || this.viewPreset === "constellation" || node.id === selectedId || related && (node.importance || 0) >= 0.72);
       if (!shouldShow) {
         el.classList.remove("visible", "active");
         continue;
@@ -28067,7 +28079,7 @@ var HermesMindCloudPanel = class extends HTMLElement {
       const active = this.hoveredNode?.id === node.id || selectedId === node.id;
       const directlyRelated = !!selectedId && (this.selectedLinks?.length ? this.linkPairs.some(([a, b]) => a?.userData?.node?.id === selectedId && b?.userData?.node?.id === node.id || b?.userData?.node?.id === selectedId && a?.userData?.node?.id === node.id) : false);
       const related = !selectedType || node.type === selectedType || directlyRelated;
-      const presetScale = this.viewPreset === "minimal" ? 0.96 : this.viewPreset === "explore" ? 1.02 : 1;
+      const presetScale = this.viewPreset === "minimal" ? 0.96 : this.viewPreset === "explore" ? 1.02 : this.viewPreset === "constellation" ? 0.98 : 1;
       const scale = active ? node.size * 1.34 : related ? node.size * presetScale : node.size * 0.88;
       mesh.scale.lerp(new Vector3(scale, scale, scale), 0.16);
       mesh.material.emissiveIntensity = active ? 1.75 : directlyRelated ? 1.08 : related ? 0.88 : 0.34;
@@ -28075,7 +28087,7 @@ var HermesMindCloudPanel = class extends HTMLElement {
     }
     for (const shell of this.clusterShells || []) {
       const emphasize = selectedType ? shell.userData.type === selectedType : true;
-      shell.material.opacity = this.viewPreset === "minimal" ? 0.012 : emphasize ? 0.082 : 0.01;
+      shell.material.opacity = this.viewPreset === "minimal" ? 2e-3 : this.viewPreset === "constellation" ? 4e-3 : emphasize ? 0.018 : 3e-3;
       shell.rotation.y += this.autoDrift * dt * 0.18;
       shell.rotation.x += this.autoDrift * dt * 0.08;
     }
@@ -28091,7 +28103,7 @@ var HermesMindCloudPanel = class extends HTMLElement {
         pos[k++] = b.position.z;
       }
       this.lines.geometry.attributes.position.needsUpdate = true;
-      this.lines.material.opacity = this.viewPreset === "minimal" ? 0.025 : selectedType ? 0.035 : this.viewPreset === "explore" ? 0.11 : 0.08;
+      this.lines.material.opacity = this.viewPreset === "minimal" ? 0.025 : this.viewPreset === "constellation" ? 0.135 : selectedType ? 0.035 : this.viewPreset === "explore" ? 0.11 : 0.08;
     }
     if (this.selectedLines) {
       this.selectedLines.visible = (this.selectedLinks?.length || 0) > 0 && this.viewPreset !== "minimal";
