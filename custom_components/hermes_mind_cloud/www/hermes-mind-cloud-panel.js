@@ -13332,6 +13332,148 @@ var LineSegments = class extends Line {
     return this;
   }
 };
+var PointsMaterial = class extends Material {
+  /**
+   * Constructs a new points material.
+   *
+   * @param {Object} [parameters] - An object with one or more properties
+   * defining the material's appearance. Any property of the material
+   * (including any property from inherited materials) can be passed
+   * in here. Color values can be passed any type of value accepted
+   * by {@link Color#set}.
+   */
+  constructor(parameters) {
+    super();
+    this.isPointsMaterial = true;
+    this.type = "PointsMaterial";
+    this.color = new Color(16777215);
+    this.map = null;
+    this.alphaMap = null;
+    this.size = 1;
+    this.sizeAttenuation = true;
+    this.fog = true;
+    this.setValues(parameters);
+  }
+  copy(source) {
+    super.copy(source);
+    this.color.copy(source.color);
+    this.map = source.map;
+    this.alphaMap = source.alphaMap;
+    this.size = source.size;
+    this.sizeAttenuation = source.sizeAttenuation;
+    this.fog = source.fog;
+    return this;
+  }
+};
+var _inverseMatrix = /* @__PURE__ */ new Matrix4();
+var _ray = /* @__PURE__ */ new Ray();
+var _sphere = /* @__PURE__ */ new Sphere();
+var _position$2 = /* @__PURE__ */ new Vector3();
+var Points = class extends Object3D {
+  /**
+   * Constructs a new point cloud.
+   *
+   * @param {BufferGeometry} [geometry] - The points geometry.
+   * @param {Material|Array<Material>} [material] - The points material.
+   */
+  constructor(geometry = new BufferGeometry(), material = new PointsMaterial()) {
+    super();
+    this.isPoints = true;
+    this.type = "Points";
+    this.geometry = geometry;
+    this.material = material;
+    this.morphTargetDictionary = void 0;
+    this.morphTargetInfluences = void 0;
+    this.updateMorphTargets();
+  }
+  copy(source, recursive) {
+    super.copy(source, recursive);
+    this.material = Array.isArray(source.material) ? source.material.slice() : source.material;
+    this.geometry = source.geometry;
+    return this;
+  }
+  /**
+   * Computes intersection points between a casted ray and this point cloud.
+   *
+   * @param {Raycaster} raycaster - The raycaster.
+   * @param {Array<Object>} intersects - The target array that holds the intersection points.
+   */
+  raycast(raycaster, intersects) {
+    const geometry = this.geometry;
+    const matrixWorld = this.matrixWorld;
+    const threshold = raycaster.params.Points.threshold;
+    const drawRange = geometry.drawRange;
+    if (geometry.boundingSphere === null) geometry.computeBoundingSphere();
+    _sphere.copy(geometry.boundingSphere);
+    _sphere.applyMatrix4(matrixWorld);
+    _sphere.radius += threshold;
+    if (raycaster.ray.intersectsSphere(_sphere) === false) return;
+    _inverseMatrix.copy(matrixWorld).invert();
+    _ray.copy(raycaster.ray).applyMatrix4(_inverseMatrix);
+    const localThreshold = threshold / ((this.scale.x + this.scale.y + this.scale.z) / 3);
+    const localThresholdSq = localThreshold * localThreshold;
+    const index = geometry.index;
+    const attributes = geometry.attributes;
+    const positionAttribute = attributes.position;
+    if (index !== null) {
+      const start = Math.max(0, drawRange.start);
+      const end = Math.min(index.count, drawRange.start + drawRange.count);
+      for (let i = start, il = end; i < il; i++) {
+        const a = index.getX(i);
+        _position$2.fromBufferAttribute(positionAttribute, a);
+        testPoint(_position$2, a, localThresholdSq, matrixWorld, raycaster, intersects, this);
+      }
+    } else {
+      const start = Math.max(0, drawRange.start);
+      const end = Math.min(positionAttribute.count, drawRange.start + drawRange.count);
+      for (let i = start, l = end; i < l; i++) {
+        _position$2.fromBufferAttribute(positionAttribute, i);
+        testPoint(_position$2, i, localThresholdSq, matrixWorld, raycaster, intersects, this);
+      }
+    }
+  }
+  /**
+   * Sets the values of {@link Points#morphTargetDictionary} and {@link Points#morphTargetInfluences}
+   * to make sure existing morph targets can influence this 3D object.
+   */
+  updateMorphTargets() {
+    const geometry = this.geometry;
+    const morphAttributes = geometry.morphAttributes;
+    const keys = Object.keys(morphAttributes);
+    if (keys.length > 0) {
+      const morphAttribute = morphAttributes[keys[0]];
+      if (morphAttribute !== void 0) {
+        this.morphTargetInfluences = [];
+        this.morphTargetDictionary = {};
+        for (let m = 0, ml = morphAttribute.length; m < ml; m++) {
+          const name = morphAttribute[m].name || String(m);
+          this.morphTargetInfluences.push(0);
+          this.morphTargetDictionary[name] = m;
+        }
+      }
+    }
+  }
+};
+function testPoint(point, index, localThresholdSq, matrixWorld, raycaster, intersects, object) {
+  const rayPointDistanceSq = _ray.distanceSqToPoint(point);
+  if (rayPointDistanceSq < localThresholdSq) {
+    const intersectPoint = new Vector3();
+    _ray.closestPointToPoint(point, intersectPoint);
+    intersectPoint.applyMatrix4(matrixWorld);
+    const distance = raycaster.ray.origin.distanceTo(intersectPoint);
+    if (distance < raycaster.near || distance > raycaster.far) return;
+    intersects.push({
+      distance,
+      distanceToRay: Math.sqrt(rayPointDistanceSq),
+      point: intersectPoint,
+      index,
+      face: null,
+      faceIndex: null,
+      barycoord: null,
+      object
+    });
+  }
+}
 var DepthTexture = class extends Texture {
   /**
    * Constructs a new depth texture.
@@ -26205,7 +26347,7 @@ var WebGLRenderer = class {
 var _changeEvent = { type: "change" };
 var _startEvent = { type: "start" };
 var _endEvent = { type: "end" };
-var _ray = new Ray();
+var _ray2 = new Ray();
 var _plane = new Plane();
 var _TILT_LIMIT = Math.cos(70 * MathUtils.DEG2RAD);
 var _v = new Vector3();
@@ -26481,13 +26623,13 @@ var OrbitControls = class extends Controls {
         if (this.screenSpacePanning) {
           this.target.set(0, 0, -1).transformDirection(this.object.matrix).multiplyScalar(newRadius).add(this.object.position);
         } else {
-          _ray.origin.copy(this.object.position);
-          _ray.direction.set(0, 0, -1).transformDirection(this.object.matrix);
-          if (Math.abs(this.object.up.dot(_ray.direction)) < _TILT_LIMIT) {
+          _ray2.origin.copy(this.object.position);
+          _ray2.direction.set(0, 0, -1).transformDirection(this.object.matrix);
+          if (Math.abs(this.object.up.dot(_ray2.direction)) < _TILT_LIMIT) {
             this.object.lookAt(this.target);
           } else {
             _plane.setFromNormalAndCoplanarPoint(this.object.up, this.target);
-            _ray.intersectPlane(_plane, this.target);
+            _ray2.intersectPlane(_plane, this.target);
           }
         }
       }
@@ -27055,8 +27197,11 @@ var HermesMindCloudPanel = class extends HTMLElement {
     this.raycaster = new Raycaster();
     this.nodeObjects = [];
     this.nodeMap = /* @__PURE__ */ new Map();
+    this.clusterShells = [];
     this.lastTime = performance.now();
-    this.autoDrift = 35e-6;
+    this.autoDrift = 16e-6;
+    this.cameraHome = new Vector3(0, 20, 320);
+    this.cameraTarget = new Vector3(0, 8, 0);
     this.render();
   }
   set hass(hass) {
@@ -27132,19 +27277,19 @@ var HermesMindCloudPanel = class extends HTMLElement {
         .hud {
           position: absolute;
           inset: 0 auto auto 0;
-          width: min(620px, calc(100% - 28px));
+          width: min(520px, calc(100% - 28px));
           margin: 16px;
           pointer-events: none;
           z-index: 2;
         }
         .headline {
           pointer-events: auto;
-          background: linear-gradient(180deg, rgba(9,14,31,0.76), rgba(9,14,31,0.36));
-          border: 1px solid var(--border);
+          background: linear-gradient(180deg, rgba(9,14,31,0.60), rgba(9,14,31,0.18));
+          border: 1px solid rgba(130, 175, 255, 0.09);
           border-radius: 18px;
           padding: 14px 16px;
-          backdrop-filter: blur(12px);
-          box-shadow: 0 12px 42px rgba(0, 0, 0, 0.24);
+          backdrop-filter: blur(10px);
+          box-shadow: 0 12px 42px rgba(0, 0, 0, 0.18);
         }
         .eyebrow {
           font-size: 11px;
@@ -27225,9 +27370,10 @@ var HermesMindCloudPanel = class extends HTMLElement {
         }
         .tooltip.visible { opacity: 1; }
         aside {
-          padding: 18px;
+          padding: 16px;
           overflow: auto;
-          background: linear-gradient(180deg, rgba(6,10,24,0.96), rgba(10,14,31,0.92));
+          background: linear-gradient(180deg, rgba(6,10,24,0.90), rgba(10,14,31,0.84));
+          backdrop-filter: blur(8px);
         }
         .card {
           background: var(--panel);
@@ -27298,7 +27444,7 @@ var HermesMindCloudPanel = class extends HTMLElement {
             <div class="headline">
               <div class="eyebrow">Hermes / Neural Memory Topology</div>
               <h1>Mind Cloud</h1>
-              <div class="sub">Riktig 3D-scen med lugn kamera, klickbara minnesnoder och semantiska kluster. Dra f\xF6r att rotera, scrolla f\xF6r att zooma, klicka f\xF6r detaljer.</div>
+              <div class="sub">Cinematic 3D-vy med tydliga hj\xE4rnregioner, lugn drift och fokusl\xE4ge vid klick. Dra f\xF6r att rotera, scrolla f\xF6r att zooma och klicka f\xF6r att l\xE5sa fokus p\xE5 en nod.</div>
               <div class="filters" id="filters"></div>
               <div class="legend">
                 <span class="memory">Memory</span>
@@ -27339,10 +27485,11 @@ var HermesMindCloudPanel = class extends HTMLElement {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
     this.controls.enablePan = false;
+    this.controls.enableRotate = true;
     this.controls.minDistance = 180;
     this.controls.maxDistance = 520;
     this.controls.autoRotate = false;
-    this.controls.target.set(0, 8, 0);
+    this.controls.target.copy(this.cameraTarget);
     const ambient = new AmbientLight(9418239, 0.9);
     this.scene.add(ambient);
     const keyLight = new PointLight(7263743, 1.5, 1200, 2);
@@ -27366,6 +27513,15 @@ var HermesMindCloudPanel = class extends HTMLElement {
     );
     this.scene.add(shell);
     this.coreShell = shell;
+    const stars = [];
+    for (let i = 0; i < 340; i++) {
+      stars.push((Math.random() - 0.5) * 1600, (Math.random() - 0.5) * 1100, (Math.random() - 0.5) * 1400);
+    }
+    const starGeo = new BufferGeometry();
+    starGeo.setAttribute("position", new Float32BufferAttribute(stars, 3));
+    const starMat = new PointsMaterial({ color: 11061247, size: 1.6, transparent: true, opacity: 0.38, sizeAttenuation: true });
+    this.starfield = new Points(starGeo, starMat);
+    this.scene.add(this.starfield);
     this.graphRoot = new Group();
     this.scene.add(this.graphRoot);
   }
@@ -27463,17 +27619,37 @@ var HermesMindCloudPanel = class extends HTMLElement {
       if (child.parent) child.parent.remove(child);
     }
     this.linkPairs = [];
+    this.clusterShells = [];
     this.nodeObjects = [];
     this.nodeMap = /* @__PURE__ */ new Map();
+    const shells = {
+      memory: { pos: [-75, -6, 10], scale: [190, 118, 152], color: 6282495 },
+      profile: { pos: [86, -36, -18], scale: [176, 108, 138], color: 16758893 },
+      skill: { pos: [12, 62, 26], scale: [248, 142, 224], color: 10319615 },
+      tool: { pos: [0, 0, -88], scale: [150, 94, 124], color: 7662514 }
+    };
+    for (const [type, shell] of Object.entries(shells)) {
+      const mesh = new Mesh(
+        new SphereGeometry(1, 32, 32),
+        new MeshBasicMaterial({ color: shell.color, transparent: true, opacity: 0.045, wireframe: true })
+      );
+      mesh.position.set(...shell.pos);
+      mesh.scale.set(...shell.scale);
+      mesh.userData.type = type;
+      this.graphRoot.add(mesh);
+      this.clusterShells.push(mesh);
+    }
     const sphereGeo = new SphereGeometry(1, 20, 20);
     for (const node of this.nodes) {
       const color = this.colorFor(node);
       const material = new MeshPhysicalMaterial({
         color,
         emissive: color,
-        emissiveIntensity: 0.75,
-        roughness: 0.34,
-        metalness: 0.04,
+        emissiveIntensity: 0.9,
+        roughness: 0.28,
+        metalness: 0.06,
+        clearcoat: 0.35,
+        clearcoatRoughness: 0.4,
         transparent: true,
         opacity: Math.min(0.98, node.alpha)
       });
@@ -27507,7 +27683,7 @@ var HermesMindCloudPanel = class extends HTMLElement {
     if (linkPositions.length) {
       const lineGeo = new BufferGeometry();
       lineGeo.setAttribute("position", new Float32BufferAttribute(linkPositions, 3));
-      const lineMat = new LineBasicMaterial({ color: 8831743, transparent: true, opacity: 0.15 });
+      const lineMat = new LineBasicMaterial({ color: 8831743, transparent: true, opacity: 0.11 });
       const lines = new LineSegments(lineGeo, lineMat);
       this.graphRoot.add(lines);
       this.lines = lines;
@@ -27546,7 +27722,7 @@ var HermesMindCloudPanel = class extends HTMLElement {
     this.updateSidePanel();
     const mesh = this.nodeMap.get(this.selectedNode.id);
     if (mesh) {
-      this.controls.target.lerp(mesh.position, 0.35);
+      this.cameraTarget.copy(mesh.position);
     }
   }
   updateFilters() {
@@ -27576,6 +27752,9 @@ var HermesMindCloudPanel = class extends HTMLElement {
       mesh.visible = this.mode === "all" || node.type === this.mode;
     }
     if (this.lines) this.lines.visible = this.mode === "all";
+    for (const shell of this.clusterShells || []) {
+      shell.visible = this.mode === "all" || shell.userData.type === this.mode;
+    }
   }
   updateTopSkills() {
     const el = this.shadowRoot.getElementById("topskills");
@@ -27640,19 +27819,31 @@ var HermesMindCloudPanel = class extends HTMLElement {
     if (this.graphRoot) {
       this.graphRoot.rotation.y += this.autoDrift * dt;
       this.coreGlow.scale.setScalar(1 + Math.sin(t * 1.2) * 0.06);
-      this.coreShell.rotation.y -= this.autoDrift * dt * 3;
-      this.coreShell.rotation.x += this.autoDrift * dt * 1.3;
+      this.coreShell.rotation.y -= this.autoDrift * dt * 2.2;
+      this.coreShell.rotation.x += this.autoDrift * dt * 1.1;
     }
+    if (this.starfield) {
+      this.starfield.rotation.y += this.autoDrift * dt * 0.12;
+      this.starfield.rotation.x = Math.sin(t * 0.04) * 0.04;
+    }
+    const selectedType = this.selectedNode?.type && this.selectedNode.type !== "core" ? this.selectedNode.type : null;
     for (const mesh of this.nodeObjects) {
       const node = mesh.userData.node;
       mesh.position.x = node.position.x + Math.cos(t * node.drift + node.phase) * node.wobble;
       mesh.position.y = node.position.y + Math.sin(t * node.drift * 1.6 + node.phase) * (node.wobble * 0.45);
       mesh.position.z = node.position.z + Math.sin(t * node.drift * 1.1 + node.phase * 0.7) * (node.wobble * 0.8);
       const active = this.hoveredNode?.id === node.id || this.selectedNode?.id === node.id;
-      const scale = active ? node.size * 1.18 : node.size;
-      mesh.scale.lerp(new Vector3(scale, scale, scale), 0.18);
-      mesh.material.emissiveIntensity = active ? 1.35 : 0.72;
-      mesh.material.opacity = active ? 1 : Math.min(0.98, node.alpha);
+      const related = !selectedType || node.type === selectedType;
+      const scale = active ? node.size * 1.24 : related ? node.size : node.size * 0.92;
+      mesh.scale.lerp(new Vector3(scale, scale, scale), 0.16);
+      mesh.material.emissiveIntensity = active ? 1.5 : related ? 0.88 : 0.42;
+      mesh.material.opacity = active ? 1 : related ? Math.min(0.98, node.alpha) : Math.max(0.18, node.alpha * 0.45);
+    }
+    for (const shell of this.clusterShells || []) {
+      const emphasize = selectedType ? shell.userData.type === selectedType : true;
+      shell.material.opacity = emphasize ? 0.085 : 0.018;
+      shell.rotation.y += this.autoDrift * dt * 0.18;
+      shell.rotation.x += this.autoDrift * dt * 0.08;
     }
     if (this.lines?.geometry && this.linkPairs?.length) {
       const pos = this.lines.geometry.attributes.position.array;
@@ -27666,7 +27857,9 @@ var HermesMindCloudPanel = class extends HTMLElement {
         pos[k++] = b.position.z;
       }
       this.lines.geometry.attributes.position.needsUpdate = true;
+      this.lines.material.opacity = selectedType ? 0.07 : 0.11;
     }
+    this.controls.target.lerp(this.cameraTarget, 0.08);
     this.controls?.update();
     this.renderer?.render(this.scene, this.camera);
     this.raf = requestAnimationFrame((next) => this.animate(next));

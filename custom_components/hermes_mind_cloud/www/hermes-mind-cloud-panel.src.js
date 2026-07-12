@@ -14,8 +14,11 @@ class HermesMindCloudPanel extends HTMLElement {
     this.raycaster = new THREE.Raycaster();
     this.nodeObjects = [];
     this.nodeMap = new Map();
+    this.clusterShells = [];
     this.lastTime = performance.now();
-    this.autoDrift = 0.000035;
+    this.autoDrift = 0.000016;
+    this.cameraHome = new THREE.Vector3(0, 20, 320);
+    this.cameraTarget = new THREE.Vector3(0, 8, 0);
     this.render();
   }
 
@@ -95,19 +98,19 @@ class HermesMindCloudPanel extends HTMLElement {
         .hud {
           position: absolute;
           inset: 0 auto auto 0;
-          width: min(620px, calc(100% - 28px));
+          width: min(520px, calc(100% - 28px));
           margin: 16px;
           pointer-events: none;
           z-index: 2;
         }
         .headline {
           pointer-events: auto;
-          background: linear-gradient(180deg, rgba(9,14,31,0.76), rgba(9,14,31,0.36));
-          border: 1px solid var(--border);
+          background: linear-gradient(180deg, rgba(9,14,31,0.60), rgba(9,14,31,0.18));
+          border: 1px solid rgba(130, 175, 255, 0.09);
           border-radius: 18px;
           padding: 14px 16px;
-          backdrop-filter: blur(12px);
-          box-shadow: 0 12px 42px rgba(0, 0, 0, 0.24);
+          backdrop-filter: blur(10px);
+          box-shadow: 0 12px 42px rgba(0, 0, 0, 0.18);
         }
         .eyebrow {
           font-size: 11px;
@@ -188,9 +191,10 @@ class HermesMindCloudPanel extends HTMLElement {
         }
         .tooltip.visible { opacity: 1; }
         aside {
-          padding: 18px;
+          padding: 16px;
           overflow: auto;
-          background: linear-gradient(180deg, rgba(6,10,24,0.96), rgba(10,14,31,0.92));
+          background: linear-gradient(180deg, rgba(6,10,24,0.90), rgba(10,14,31,0.84));
+          backdrop-filter: blur(8px);
         }
         .card {
           background: var(--panel);
@@ -261,7 +265,7 @@ class HermesMindCloudPanel extends HTMLElement {
             <div class="headline">
               <div class="eyebrow">Hermes / Neural Memory Topology</div>
               <h1>Mind Cloud</h1>
-              <div class="sub">Riktig 3D-scen med lugn kamera, klickbara minnesnoder och semantiska kluster. Dra för att rotera, scrolla för att zooma, klicka för detaljer.</div>
+              <div class="sub">Cinematic 3D-vy med tydliga hjärnregioner, lugn drift och fokusläge vid klick. Dra för att rotera, scrolla för att zooma och klicka för att låsa fokus på en nod.</div>
               <div class="filters" id="filters"></div>
               <div class="legend">
                 <span class="memory">Memory</span>
@@ -306,10 +310,11 @@ class HermesMindCloudPanel extends HTMLElement {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
     this.controls.enablePan = false;
+    this.controls.enableRotate = true;
     this.controls.minDistance = 180;
     this.controls.maxDistance = 520;
     this.controls.autoRotate = false;
-    this.controls.target.set(0, 8, 0);
+    this.controls.target.copy(this.cameraTarget);
 
     const ambient = new THREE.AmbientLight(0x8fb5ff, 0.9);
     this.scene.add(ambient);
@@ -339,6 +344,16 @@ class HermesMindCloudPanel extends HTMLElement {
     );
     this.scene.add(shell);
     this.coreShell = shell;
+
+    const stars = [];
+    for (let i = 0; i < 340; i++) {
+      stars.push((Math.random() - 0.5) * 1600, (Math.random() - 0.5) * 1100, (Math.random() - 0.5) * 1400);
+    }
+    const starGeo = new THREE.BufferGeometry();
+    starGeo.setAttribute('position', new THREE.Float32BufferAttribute(stars, 3));
+    const starMat = new THREE.PointsMaterial({ color: 0xa8c7ff, size: 1.6, transparent: true, opacity: 0.38, sizeAttenuation: true });
+    this.starfield = new THREE.Points(starGeo, starMat);
+    this.scene.add(this.starfield);
 
     this.graphRoot = new THREE.Group();
     this.scene.add(this.graphRoot);
@@ -444,8 +459,27 @@ class HermesMindCloudPanel extends HTMLElement {
     }
 
     this.linkPairs = [];
+    this.clusterShells = [];
     this.nodeObjects = [];
     this.nodeMap = new Map();
+
+    const shells = {
+      memory: { pos: [-75, -6, 10], scale: [190, 118, 152], color: 0x5fdcff },
+      profile: { pos: [86, -36, -18], scale: [176, 108, 138], color: 0xffb86d },
+      skill: { pos: [12, 62, 26], scale: [248, 142, 224], color: 0x9d76ff },
+      tool: { pos: [0, 0, -88], scale: [150, 94, 124], color: 0x74ebb2 },
+    };
+    for (const [type, shell] of Object.entries(shells)) {
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(1, 32, 32),
+        new THREE.MeshBasicMaterial({ color: shell.color, transparent: true, opacity: 0.045, wireframe: true })
+      );
+      mesh.position.set(...shell.pos);
+      mesh.scale.set(...shell.scale);
+      mesh.userData.type = type;
+      this.graphRoot.add(mesh);
+      this.clusterShells.push(mesh);
+    }
 
     const sphereGeo = new THREE.SphereGeometry(1, 20, 20);
     for (const node of this.nodes) {
@@ -453,9 +487,11 @@ class HermesMindCloudPanel extends HTMLElement {
       const material = new THREE.MeshPhysicalMaterial({
         color,
         emissive: color,
-        emissiveIntensity: 0.75,
-        roughness: 0.34,
-        metalness: 0.04,
+        emissiveIntensity: 0.9,
+        roughness: 0.28,
+        metalness: 0.06,
+        clearcoat: 0.35,
+        clearcoatRoughness: 0.4,
         transparent: true,
         opacity: Math.min(0.98, node.alpha),
       });
@@ -491,7 +527,7 @@ class HermesMindCloudPanel extends HTMLElement {
     if (linkPositions.length) {
       const lineGeo = new THREE.BufferGeometry();
       lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linkPositions, 3));
-      const lineMat = new THREE.LineBasicMaterial({ color: 0x86c2ff, transparent: true, opacity: 0.15 });
+      const lineMat = new THREE.LineBasicMaterial({ color: 0x86c2ff, transparent: true, opacity: 0.11 });
       const lines = new THREE.LineSegments(lineGeo, lineMat);
       this.graphRoot.add(lines);
       this.lines = lines;
@@ -533,7 +569,7 @@ class HermesMindCloudPanel extends HTMLElement {
     this.updateSidePanel();
     const mesh = this.nodeMap.get(this.selectedNode.id);
     if (mesh) {
-      this.controls.target.lerp(mesh.position, 0.35);
+      this.cameraTarget.copy(mesh.position);
     }
   }
 
@@ -565,6 +601,9 @@ class HermesMindCloudPanel extends HTMLElement {
       mesh.visible = this.mode === 'all' || node.type === this.mode;
     }
     if (this.lines) this.lines.visible = this.mode === 'all';
+    for (const shell of this.clusterShells || []) {
+      shell.visible = this.mode === 'all' || shell.userData.type === this.mode;
+    }
   }
 
   updateTopSkills() {
@@ -636,20 +675,32 @@ class HermesMindCloudPanel extends HTMLElement {
     if (this.graphRoot) {
       this.graphRoot.rotation.y += this.autoDrift * dt;
       this.coreGlow.scale.setScalar(1 + Math.sin(t * 1.2) * 0.06);
-      this.coreShell.rotation.y -= this.autoDrift * dt * 3;
-      this.coreShell.rotation.x += this.autoDrift * dt * 1.3;
+      this.coreShell.rotation.y -= this.autoDrift * dt * 2.2;
+      this.coreShell.rotation.x += this.autoDrift * dt * 1.1;
+    }
+    if (this.starfield) {
+      this.starfield.rotation.y += this.autoDrift * dt * 0.12;
+      this.starfield.rotation.x = Math.sin(t * 0.04) * 0.04;
     }
 
+    const selectedType = this.selectedNode?.type && this.selectedNode.type !== 'core' ? this.selectedNode.type : null;
     for (const mesh of this.nodeObjects) {
       const node = mesh.userData.node;
       mesh.position.x = node.position.x + Math.cos(t * node.drift + node.phase) * node.wobble;
       mesh.position.y = node.position.y + Math.sin(t * node.drift * 1.6 + node.phase) * (node.wobble * 0.45);
       mesh.position.z = node.position.z + Math.sin(t * node.drift * 1.1 + node.phase * 0.7) * (node.wobble * 0.8);
       const active = this.hoveredNode?.id === node.id || this.selectedNode?.id === node.id;
-      const scale = active ? node.size * 1.18 : node.size;
-      mesh.scale.lerp(new THREE.Vector3(scale, scale, scale), 0.18);
-      mesh.material.emissiveIntensity = active ? 1.35 : 0.72;
-      mesh.material.opacity = active ? 1 : Math.min(0.98, node.alpha);
+      const related = !selectedType || node.type === selectedType;
+      const scale = active ? node.size * 1.24 : related ? node.size : node.size * 0.92;
+      mesh.scale.lerp(new THREE.Vector3(scale, scale, scale), 0.16);
+      mesh.material.emissiveIntensity = active ? 1.5 : related ? 0.88 : 0.42;
+      mesh.material.opacity = active ? 1 : related ? Math.min(0.98, node.alpha) : Math.max(0.18, node.alpha * 0.45);
+    }
+    for (const shell of this.clusterShells || []) {
+      const emphasize = selectedType ? shell.userData.type === selectedType : true;
+      shell.material.opacity = emphasize ? 0.085 : 0.018;
+      shell.rotation.y += this.autoDrift * dt * 0.18;
+      shell.rotation.x += this.autoDrift * dt * 0.08;
     }
 
     if (this.lines?.geometry && this.linkPairs?.length) {
@@ -660,8 +711,10 @@ class HermesMindCloudPanel extends HTMLElement {
         pos[k++] = b.position.x; pos[k++] = b.position.y; pos[k++] = b.position.z;
       }
       this.lines.geometry.attributes.position.needsUpdate = true;
+      this.lines.material.opacity = selectedType ? 0.07 : 0.11;
     }
 
+    this.controls.target.lerp(this.cameraTarget, 0.08);
     this.controls?.update();
     this.renderer?.render(this.scene, this.camera);
     this.raf = requestAnimationFrame((next) => this.animate(next));
