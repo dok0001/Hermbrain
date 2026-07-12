@@ -27199,9 +27199,15 @@ var HermesMindCloudPanel = class extends HTMLElement {
     this.nodeMap = /* @__PURE__ */ new Map();
     this.clusterShells = [];
     this.lastTime = performance.now();
-    this.autoDrift = 16e-6;
+    this.autoDrift = 1e-5;
     this.cameraHome = new Vector3(0, 20, 320);
     this.cameraTarget = new Vector3(0, 8, 0);
+    this.sectionState = {
+      hud: false,
+      snapshot: false,
+      details: false,
+      skills: true
+    };
     this.render();
   }
   set hass(hass) {
@@ -27219,6 +27225,7 @@ var HermesMindCloudPanel = class extends HTMLElement {
     this.statsEl = this.shadowRoot.getElementById("stats");
     this.filterEl = this.shadowRoot.getElementById("filters");
     this.tooltipEl = this.shadowRoot.getElementById("tooltip");
+    this.installSectionToggles();
     this.initThree();
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(this.sceneHost);
@@ -27252,18 +27259,20 @@ var HermesMindCloudPanel = class extends HTMLElement {
         * { box-sizing: border-box; }
         .layout {
           display: grid;
-          grid-template-columns: minmax(0, 1.72fr) minmax(320px, 0.9fr);
+          grid-template-columns: minmax(0, 1.78fr) minmax(300px, 0.82fr);
           height: 100vh;
           background:
-            radial-gradient(circle at 22% 18%, rgba(53, 121, 255, 0.12), transparent 28%),
-            radial-gradient(circle at 70% 18%, rgba(117, 81, 255, 0.1), transparent 24%),
-            linear-gradient(180deg, var(--bg1), var(--bg0));
+            radial-gradient(circle at 18% 16%, rgba(56, 124, 255, 0.10), transparent 26%),
+            radial-gradient(circle at 74% 14%, rgba(116, 76, 255, 0.09), transparent 22%),
+            radial-gradient(circle at 50% 58%, rgba(66, 235, 255, 0.05), transparent 24%),
+            linear-gradient(180deg, #08101f, #03060f 64%, #02040b);
         }
         .scene-wrap {
           position: relative;
           min-height: 60vh;
           overflow: hidden;
-          border-right: 1px solid var(--border);
+          border-right: 1px solid rgba(130, 175, 255, 0.08);
+          box-shadow: inset -30px 0 80px rgba(6, 10, 24, 0.36);
         }
         #scene {
           position: absolute;
@@ -27284,12 +27293,12 @@ var HermesMindCloudPanel = class extends HTMLElement {
         }
         .headline {
           pointer-events: auto;
-          background: linear-gradient(180deg, rgba(9,14,31,0.60), rgba(9,14,31,0.18));
-          border: 1px solid rgba(130, 175, 255, 0.09);
+          background: linear-gradient(180deg, rgba(8,12,28,0.54), rgba(8,12,28,0.10));
+          border: 1px solid rgba(130, 175, 255, 0.08);
           border-radius: 18px;
-          padding: 14px 16px;
+          padding: 12px 14px;
           backdrop-filter: blur(10px);
-          box-shadow: 0 12px 42px rgba(0, 0, 0, 0.18);
+          box-shadow: 0 14px 44px rgba(0, 0, 0, 0.16);
         }
         .eyebrow {
           font-size: 11px;
@@ -27328,6 +27337,29 @@ var HermesMindCloudPanel = class extends HTMLElement {
         .filters button.active {
           background: linear-gradient(180deg, rgba(63, 179, 255, 0.24), rgba(76, 97, 255, 0.16));
           box-shadow: 0 0 20px rgba(61,184,255,0.12);
+        }
+        .section-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+        .toggle-btn {
+          appearance: none;
+          border: 1px solid rgba(133, 180, 255, 0.12);
+          background: rgba(95, 130, 255, 0.08);
+          color: #d7e5ff;
+          border-radius: 999px;
+          padding: 6px 10px;
+          font-size: 12px;
+          line-height: 1;
+          cursor: pointer;
+        }
+        .toggle-btn:hover {
+          background: rgba(95, 130, 255, 0.14);
+        }
+        .section-body.collapsed {
+          display: none;
         }
         .legend {
           margin-top: 12px;
@@ -27376,12 +27408,12 @@ var HermesMindCloudPanel = class extends HTMLElement {
           backdrop-filter: blur(8px);
         }
         .card {
-          background: var(--panel);
-          border: 1px solid var(--border);
+          background: rgba(11, 16, 35, 0.66);
+          border: 1px solid rgba(130, 175, 255, 0.10);
           border-radius: 18px;
-          padding: 16px;
-          margin-bottom: 14px;
-          box-shadow: 0 12px 28px rgba(0,0,0,0.22);
+          padding: 14px;
+          margin-bottom: 12px;
+          box-shadow: 0 10px 24px rgba(0,0,0,0.18);
           backdrop-filter: blur(10px);
         }
         .card h2, .card h3 { margin: 0 0 10px 0; }
@@ -27442,37 +27474,83 @@ var HermesMindCloudPanel = class extends HTMLElement {
           <div class="tooltip" id="tooltip"></div>
           <div class="hud">
             <div class="headline">
-              <div class="eyebrow">Hermes / Neural Memory Topology</div>
-              <h1>Mind Cloud</h1>
-              <div class="sub">Cinematic 3D-vy med tydliga hj\xE4rnregioner, lugn drift och fokusl\xE4ge vid klick. Dra f\xF6r att rotera, scrolla f\xF6r att zooma och klicka f\xF6r att l\xE5sa fokus p\xE5 en nod.</div>
-              <div class="filters" id="filters"></div>
-              <div class="legend">
+              <div class="section-head">
+                <div>
+                  <div class="eyebrow">Hermes / Neural Memory Topology</div>
+                  <h1>Mind Cloud</h1>
+                </div>
+                <button class="toggle-btn" data-section-toggle="hud">Minimera</button>
+              </div>
+              <div class="section-body" data-section-body="hud">
+                <div class="sub">Fas 3: mer brain-in-space, tydligare regioner, minimala kontroller och ett lugnare fokusl\xE4ge n\xE4r du l\xE5ser p\xE5 en nod.</div>
+                <div class="filters" id="filters"></div>
+                <div class="legend">
                 <span class="memory">Memory</span>
                 <span class="skill">Skills</span>
                 <span class="profile">Profile</span>
                 <span class="tool">Tools</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
         <aside>
           <div class="card">
-            <h2>Live snapshot</h2>
-            <div class="stats" id="stats"></div>
+            <div class="section-head">
+              <h2>Live snapshot</h2>
+              <button class="toggle-btn" data-section-toggle="snapshot">Minimera</button>
+            </div>
+            <div class="section-body" data-section-body="snapshot">
+              <div class="stats" id="stats"></div>
+            </div>
           </div>
-          <div class="card" id="details"></div>
+          <div class="card" id="details-card">
+            <div class="section-head">
+              <h3>Fokus</h3>
+              <button class="toggle-btn" data-section-toggle="details">Minimera</button>
+            </div>
+            <div class="section-body" data-section-body="details">
+              <div id="details"></div>
+            </div>
+          </div>
           <div class="card">
-            <h3>Top skills</h3>
-            <div class="list" id="topskills"></div>
+            <div class="section-head">
+              <h3>Top skills</h3>
+              <button class="toggle-btn" data-section-toggle="skills">Visa</button>
+            </div>
+            <div class="section-body collapsed" data-section-body="skills">
+              <div class="list" id="topskills"></div>
+            </div>
           </div>
         </aside>
       </div>
     `;
   }
+  installSectionToggles() {
+    this.shadowRoot.querySelectorAll("[data-section-toggle]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.sectionToggle;
+        this.sectionState[key] = !this.sectionState[key];
+        this.applySectionState();
+      });
+    });
+    this.applySectionState();
+  }
+  applySectionState() {
+    this.shadowRoot.querySelectorAll("[data-section-body]").forEach((el) => {
+      const key = el.dataset.sectionBody;
+      const collapsed = !!this.sectionState[key];
+      el.classList.toggle("collapsed", collapsed);
+    });
+    this.shadowRoot.querySelectorAll("[data-section-toggle]").forEach((btn) => {
+      const key = btn.dataset.sectionToggle;
+      btn.textContent = this.sectionState[key] ? "Visa" : "Minimera";
+    });
+  }
   initThree() {
     this.scene = new Scene();
-    this.scene.background = new Color(330006);
-    this.scene.fog = new FogExp2(461592, 22e-4);
+    this.scene.background = new Color(264212);
+    this.scene.fog = new FogExp2(330261, 26e-4);
     this.camera = new PerspectiveCamera(46, 1, 0.1, 2e3);
     this.camera.position.set(0, 20, 320);
     this.renderer = new WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
@@ -27490,9 +27568,9 @@ var HermesMindCloudPanel = class extends HTMLElement {
     this.controls.maxDistance = 520;
     this.controls.autoRotate = false;
     this.controls.target.copy(this.cameraTarget);
-    const ambient = new AmbientLight(9418239, 0.9);
+    const ambient = new AmbientLight(9418239, 0.82);
     this.scene.add(ambient);
-    const keyLight = new PointLight(7263743, 1.5, 1200, 2);
+    const keyLight = new PointLight(7263743, 1.7, 1200, 2);
     keyLight.position.set(0, 40, 35);
     this.scene.add(keyLight);
     const fillLight = new PointLight(7241215, 0.65, 1100, 2);
@@ -27514,12 +27592,12 @@ var HermesMindCloudPanel = class extends HTMLElement {
     this.scene.add(shell);
     this.coreShell = shell;
     const stars = [];
-    for (let i = 0; i < 340; i++) {
+    for (let i = 0; i < 520; i++) {
       stars.push((Math.random() - 0.5) * 1600, (Math.random() - 0.5) * 1100, (Math.random() - 0.5) * 1400);
     }
     const starGeo = new BufferGeometry();
     starGeo.setAttribute("position", new Float32BufferAttribute(stars, 3));
-    const starMat = new PointsMaterial({ color: 11061247, size: 1.6, transparent: true, opacity: 0.38, sizeAttenuation: true });
+    const starMat = new PointsMaterial({ color: 11061247, size: 1.35, transparent: true, opacity: 0.44, sizeAttenuation: true });
     this.starfield = new Points(starGeo, starMat);
     this.scene.add(this.starfield);
     this.graphRoot = new Group();
@@ -27623,15 +27701,15 @@ var HermesMindCloudPanel = class extends HTMLElement {
     this.nodeObjects = [];
     this.nodeMap = /* @__PURE__ */ new Map();
     const shells = {
-      memory: { pos: [-75, -6, 10], scale: [190, 118, 152], color: 6282495 },
-      profile: { pos: [86, -36, -18], scale: [176, 108, 138], color: 16758893 },
-      skill: { pos: [12, 62, 26], scale: [248, 142, 224], color: 10319615 },
-      tool: { pos: [0, 0, -88], scale: [150, 94, 124], color: 7662514 }
+      memory: { pos: [-75, -6, 10], scale: [210, 126, 168], color: 6282495 },
+      profile: { pos: [86, -36, -18], scale: [186, 114, 146], color: 16758893 },
+      skill: { pos: [12, 62, 26], scale: [268, 156, 238], color: 10319615 },
+      tool: { pos: [0, 0, -88], scale: [164, 100, 130], color: 7662514 }
     };
     for (const [type, shell] of Object.entries(shells)) {
       const mesh = new Mesh(
         new SphereGeometry(1, 32, 32),
-        new MeshBasicMaterial({ color: shell.color, transparent: true, opacity: 0.045, wireframe: true })
+        new MeshBasicMaterial({ color: shell.color, transparent: true, opacity: 0.032, wireframe: true })
       );
       mesh.position.set(...shell.pos);
       mesh.scale.set(...shell.scale);
@@ -27683,7 +27761,7 @@ var HermesMindCloudPanel = class extends HTMLElement {
     if (linkPositions.length) {
       const lineGeo = new BufferGeometry();
       lineGeo.setAttribute("position", new Float32BufferAttribute(linkPositions, 3));
-      const lineMat = new LineBasicMaterial({ color: 8831743, transparent: true, opacity: 0.11 });
+      const lineMat = new LineBasicMaterial({ color: 8831743, transparent: true, opacity: 0.08 });
       const lines = new LineSegments(lineGeo, lineMat);
       this.graphRoot.add(lines);
       this.lines = lines;
@@ -27841,7 +27919,7 @@ var HermesMindCloudPanel = class extends HTMLElement {
     }
     for (const shell of this.clusterShells || []) {
       const emphasize = selectedType ? shell.userData.type === selectedType : true;
-      shell.material.opacity = emphasize ? 0.085 : 0.018;
+      shell.material.opacity = emphasize ? 0.07 : 0.012;
       shell.rotation.y += this.autoDrift * dt * 0.18;
       shell.rotation.x += this.autoDrift * dt * 0.08;
     }
@@ -27857,7 +27935,7 @@ var HermesMindCloudPanel = class extends HTMLElement {
         pos[k++] = b.position.z;
       }
       this.lines.geometry.attributes.position.needsUpdate = true;
-      this.lines.material.opacity = selectedType ? 0.07 : 0.11;
+      this.lines.material.opacity = selectedType ? 0.05 : 0.08;
     }
     this.controls.target.lerp(this.cameraTarget, 0.08);
     this.controls?.update();
