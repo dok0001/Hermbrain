@@ -7,10 +7,14 @@ class HermesMindCloudPanel extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this.data = null;
     this.nodes = [];
+    this.linkDefs = [];
     this.mode = 'all';
     this.viewMode = 'constellation';
     this.labelMode = 'smart';
     this.motionMode = 'calm';
+    this.windowPreset = 'overview';
+    this.focusFilterMode = 'all';
+    this.focusFilterIds = null;
     this.selectedNode = null;
     this.hoveredNode = null;
     this.searchQuery = '';
@@ -45,6 +49,21 @@ class HermesMindCloudPanel extends HTMLElement {
     this.labelsEl = this.shadowRoot.getElementById('labels');
     this.searchEl = this.shadowRoot.getElementById('search');
     this.focusListEl = this.shadowRoot.getElementById('focuslist');
+    this.relationsEl = this.shadowRoot.getElementById('relations');
+    this.workspaceEl = this.shadowRoot.getElementById('workspace');
+    this.workspaceTitleEl = this.shadowRoot.getElementById('workspace-title');
+    this.analysisSummaryEl = this.shadowRoot.getElementById('analysis-summary');
+    this.analysisNoisyEl = this.shadowRoot.getElementById('analysis-noisy');
+    this.analysisFreshEl = this.shadowRoot.getElementById('analysis-fresh');
+    this.analysisGroupsEl = this.shadowRoot.getElementById('analysis-groups');
+    this.inspectorShellEl = this.shadowRoot.getElementById('inspector-shell');
+    this.inspectorTitleEl = this.shadowRoot.getElementById('inspector-title');
+    this.inspectorTypeEl = this.shadowRoot.getElementById('inspector-type');
+    this.inspectorBodyEl = this.shadowRoot.getElementById('inspector-body');
+    this.inspectorMetaEl = this.shadowRoot.getElementById('inspector-meta');
+    this.inspectorActionsEl = this.shadowRoot.getElementById('inspector-actions');
+    this.inspectorRelationsEl = this.shadowRoot.getElementById('inspector-relations');
+    this.windowPresetEl = this.shadowRoot.getElementById('windowpresets');
     this.labelModeEl = this.shadowRoot.getElementById('labelmodes');
     this.motionModeEl = this.shadowRoot.getElementById('motionmodes');
     this.viewModeEl = this.shadowRoot.getElementById('viewmodes');
@@ -283,7 +302,7 @@ class HermesMindCloudPanel extends HTMLElement {
         }
         .controls {
           display: grid;
-          grid-template-columns: minmax(0, 1.35fr) auto auto auto;
+          grid-template-columns: minmax(0, 1.35fr) auto auto auto auto;
           gap: 10px;
           margin-top: 14px;
           align-items: start;
@@ -352,6 +371,72 @@ class HermesMindCloudPanel extends HTMLElement {
           border-radius: 50%;
           margin-right: 8px;
           vertical-align: middle;
+        }
+        .inspector-meta,
+        .inspector-relations,
+        .workspace-grid,
+        .analysis-grid {
+          display: grid;
+          gap: 10px;
+          margin-top: 12px;
+        }
+        .inspector-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 12px;
+        }
+        .inspector-action-btn,
+        .inspector-rel-btn {
+          background: rgba(102, 153, 255, 0.08);
+          color: #dce7ff;
+          border: 1px solid rgba(135, 180, 255, 0.15);
+          border-radius: 12px;
+          padding: 8px 11px;
+          cursor: pointer;
+          text-align: left;
+        }
+        .inspector-action-btn.active {
+          background: linear-gradient(180deg, rgba(63, 179, 255, 0.24), rgba(76, 97, 255, 0.16));
+          box-shadow: 0 0 20px rgba(61,184,255,0.12);
+        }
+        .inspector-pill-grid {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .inspector-pill,
+        .inspector-badge {
+          padding: 6px 10px;
+          border-radius: 999px;
+          background: rgba(126, 180, 255, 0.10);
+          border: 1px solid rgba(126, 180, 255, 0.12);
+          color: #d9e3ff;
+          font-size: 12px;
+        }
+        .inspector-pill.critical,
+        .chip.critical { border-color: rgba(255,107,107,0.34); color: #ffd8d8; background: rgba(255,107,107,0.12); }
+        .inspector-pill.ok,
+        .chip.ok { border-color: rgba(121,240,174,0.22); color: #d6ffeb; background: rgba(121,240,174,0.10); }
+        .inspector-section-title {
+          font-size: 11px;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: #90b9ff;
+        }
+        .inspector-rel-group {
+          display: grid;
+          gap: 8px;
+          padding: 10px;
+          border-radius: 14px;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.06);
+        }
+        .inspector-rel-group-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
         }
         .memory::before { background: #7ee7ff; }
         .skill::before { background: #ae8cff; }
@@ -494,6 +579,7 @@ class HermesMindCloudPanel extends HTMLElement {
                 <label class="search">
                   <input id="search" type="search" placeholder="Sök minnen, skills, profiler, verktyg..." />
                 </label>
+                <div class="control-group control-pills" id="windowpresets"></div>
                 <div class="control-group control-pills" id="viewmodes"></div>
                 <div class="control-group control-pills" id="labelmodes"></div>
                 <div class="control-group control-pills" id="motionmodes"></div>
@@ -518,10 +604,38 @@ class HermesMindCloudPanel extends HTMLElement {
             <div class="stats" id="stats"></div>
           </div>
           <div class="card" id="details"></div>
+          <div class="card" id="inspector-shell">
+            <div class="detail-type" id="inspector-type">Inspector</div>
+            <h3 id="inspector-title">Mind Cloud</h3>
+            <div class="detail-body" id="inspector-body">Välj en nod för metadata, snabbfokus och grupperade relationer.</div>
+            <div class="inspector-meta" id="inspector-meta"></div>
+            <div class="inspector-actions" id="inspector-actions"></div>
+            <div class="inspector-relations" id="inspector-relations"></div>
+          </div>
           <div class="card">
             <h3>Focus lane</h3>
             <div class="microcopy">Viktigaste synliga noderna just nu. Påverkas av filter, sök, label-läge och vald vy.</div>
             <div class="focus-grid" id="focuslist"></div>
+          </div>
+          <div class="card">
+            <h3>Relations</h3>
+            <div class="microcopy">Närliggande och semantiskt liknande noder runt nuvarande fokus.</div>
+            <div class="list" id="relations"></div>
+          </div>
+          <div class="card">
+            <h3 id="workspace-title">Workspace</h3>
+            <div class="microcopy">Mind Cloud-motsvarigheten till rooms: fokus per group/category och relaterade kluster.</div>
+            <div class="workspace-grid" id="workspace"></div>
+          </div>
+          <div class="card">
+            <h3>Analysis</h3>
+            <div class="microcopy">Axon-inspirerad analys av högsignal-noder, färska minnen och tyngsta grupper.</div>
+            <div class="analysis-grid">
+              <div class="list" id="analysis-summary"></div>
+              <div class="list" id="analysis-noisy"></div>
+              <div class="list" id="analysis-fresh"></div>
+              <div class="list" id="analysis-groups"></div>
+            </div>
           </div>
           <div class="card">
             <h3>Top skills</h3>
@@ -760,6 +874,7 @@ class HermesMindCloudPanel extends HTMLElement {
     }
 
     this.linkPairs = [];
+    this.linkDefs = [];
     this.nodeObjects = [];
     this.nodeMap = new Map();
     this.labelEls = new Map();
@@ -832,6 +947,12 @@ class HermesMindCloudPanel extends HTMLElement {
       for (const { b } of neighbors.slice(0, a.importance > 0.72 ? 3 : 2)) {
         linkPositions.push(a.position.x, a.position.y, a.position.z, b.position.x, b.position.y, b.position.z);
         linkPairs.push({ a: this.nodeMap.get(a.id), b: this.nodeMap.get(b.id), speed: 0.35 + ((i + b.size) % 4) * 0.12 });
+        this.linkDefs.push({
+          source: a.id,
+          target: b.id,
+          relation: a.type === b.type ? `${a.type} cluster` : `${a.group || a.category || a.type} → ${b.group || b.category || b.type}`,
+          weight: 1 / Math.max(1, a.basePosition.distanceTo(b.basePosition)),
+        });
       }
     }
 
@@ -914,6 +1035,13 @@ class HermesMindCloudPanel extends HTMLElement {
   onClick() {
     if (!this.hoveredNode) return;
     this.selectedNode = this.hoveredNode;
+    if (this.focusFilterMode === 'neighbors') this.focusFilterIds = this.collectNeighborIds(this.selectedNode);
+    else if (this.focusFilterMode === 'isolate') {
+      const key = this.selectedNode.group || this.selectedNode.category || this.selectedNode.type;
+      this.focusFilterIds = new Set(this.nodes.filter((item) => (item.group || item.category || item.type) === key).map((item) => item.id));
+      this.focusFilterIds.add(this.selectedNode.id);
+    }
+    this.applyVisibility();
     this.updateSidePanel();
     this.updateFocusLane();
     const mesh = this.nodeMap.get(this.selectedNode.id);
@@ -925,6 +1053,13 @@ class HermesMindCloudPanel extends HTMLElement {
     const node = mesh?.userData?.node;
     if (!node) return;
     this.selectedNode = node;
+    if (this.focusFilterMode === 'neighbors') this.focusFilterIds = this.collectNeighborIds(this.selectedNode);
+    else if (this.focusFilterMode === 'isolate') {
+      const key = this.selectedNode.group || this.selectedNode.category || this.selectedNode.type;
+      this.focusFilterIds = new Set(this.nodes.filter((item) => (item.group || item.category || item.type) === key).map((item) => item.id));
+      this.focusFilterIds.add(this.selectedNode.id);
+    }
+    this.applyVisibility();
     this.updateSidePanel();
     this.updateFocusLane();
     this.controls.target.lerp(mesh.position, 0.4);
@@ -942,6 +1077,16 @@ class HermesMindCloudPanel extends HTMLElement {
         host.appendChild(button);
       });
     };
+
+    build(this.windowPresetEl, this.windowPreset, [
+      ['overview', 'Overview'],
+      ['workspace', 'Workspace'],
+      ['analysis', 'Analysis'],
+      ['relations', 'Relations'],
+    ], (value) => {
+      this.windowPreset = value;
+      this.updateSidePanel();
+    });
 
     build(this.viewModeEl, this.viewMode, [
       ['constellation', 'Constellations'],
@@ -992,6 +1137,7 @@ class HermesMindCloudPanel extends HTMLElement {
         this.applyVisibility();
         this.updateFilters();
         this.updateFocusLane();
+        this.updateSidePanel();
       });
       this.filterEl.appendChild(button);
     });
@@ -1005,11 +1151,12 @@ class HermesMindCloudPanel extends HTMLElement {
     for (const mesh of this.nodeObjects) {
       const node = mesh.userData.node;
       const typeMatch = this.mode === 'all' || node.type === this.mode;
-      mesh.visible = typeMatch && this.matchesSearch(node);
+      const focusAllowed = !this.focusFilterIds || this.focusFilterIds.has(node.id);
+      mesh.visible = typeMatch && this.matchesSearch(node) && focusAllowed;
       const label = this.labelEls.get(node.id);
       if (label) label.style.opacity = '0';
     }
-    if (this.lines) this.lines.visible = this.mode === 'all' || !!this.searchQuery;
+    if (this.lines) this.lines.visible = true;
     this.drawMiniMap();
   }
 
@@ -1020,7 +1167,223 @@ class HermesMindCloudPanel extends HTMLElement {
       .sort((a, b) => (b.importance || 0) - (a.importance || 0));
   }
 
-  updateTopSkills() {
+  getNodeById(id) {
+    return this.nodeMap.get(id)?.userData?.node || null;
+  }
+
+  getRelatedNodes(node) {
+    if (!node?.id) return [];
+    const seen = new Map();
+    (this.linkDefs || []).forEach((link) => {
+      let otherId = null;
+      let relation = link.relation;
+      if (link.source === node.id) otherId = link.target;
+      else if (link.target === node.id) { otherId = link.source; relation = `← ${relation}`; }
+      if (!otherId) return;
+      const other = this.getNodeById(otherId);
+      if (!other) return;
+      if (!seen.has(otherId)) seen.set(otherId, { ...other, relation, weight: link.weight || 1 });
+    });
+    const groupKey = node.group || node.category || node.type;
+    this.nodes.forEach((other) => {
+      if (other.id === node.id || seen.has(other.id)) return;
+      const otherKey = other.group || other.category || other.type;
+      if (groupKey && otherKey === groupKey) seen.set(other.id, { ...other, relation: `shared ${groupKey}`, weight: 0.5 });
+    });
+    return [...seen.values()].sort((a, b) => (b.weight || 0) - (a.weight || 0) || (b.importance || 0) - (a.importance || 0)).slice(0, 18);
+  }
+
+  relationGroupLabel(rel) {
+    const key = String(rel?.relation || '').toLowerCase();
+    if (key.includes('shared')) return 'Shared group';
+    if (key.includes('cluster')) return 'Cluster neighbors';
+    if (key.includes('memory')) return 'Memory';
+    if (key.includes('skill')) return 'Skills';
+    if (key.includes('profile')) return 'Profile';
+    if (key.includes('tool')) return 'Tools';
+    return 'Linked';
+  }
+
+  groupRelatedNodes(related = []) {
+    const groups = new Map();
+    related.forEach((rel) => {
+      const label = this.relationGroupLabel(rel);
+      if (!groups.has(label)) groups.set(label, []);
+      groups.get(label).push(rel);
+    });
+    return [...groups.entries()].map(([label, items]) => ({ label, items }));
+  }
+
+  collectNeighborIds(node) {
+    if (!node?.id) return new Set();
+    const ids = new Set([node.id]);
+    this.getRelatedNodes(node).forEach((rel) => ids.add(rel.id));
+    return ids;
+  }
+
+  setFocusFilter(mode = 'all') {
+    this.focusFilterMode = mode;
+    const node = this.selectedNode || this.hoveredNode;
+    if (!node?.id || mode === 'all') this.focusFilterIds = null;
+    else if (mode === 'neighbors') this.focusFilterIds = this.collectNeighborIds(node);
+    else if (mode === 'isolate') {
+      const key = node.group || node.category || node.type;
+      this.focusFilterIds = new Set(this.nodes.filter((item) => (item.group || item.category || item.type) === key).map((item) => item.id));
+      this.focusFilterIds.add(node.id);
+    }
+    this.applyVisibility();
+    this.updateFocusLane();
+    this.updateSidePanel();
+  }
+
+  computeAnalysisData() {
+    const summary = this.nodes.slice().sort((a, b) => (b.importance || 0) - (a.importance || 0)).slice(0, 8);
+    const noisy = this.nodes.slice().sort((a, b) => ((b.use_count || 0) + (b.view_count || 0) + (b.patch_count || 0)) - ((a.use_count || 0) + (a.view_count || 0) + (a.patch_count || 0))).slice(0, 8)
+      .map((item) => ({ ...item, noisyScore: (item.use_count || 0) + (item.view_count || 0) + (item.patch_count || 0) }));
+    const fresh = this.nodes.slice().filter((item) => item.updated_at || item.created_at || item.last_used_at)
+      .sort((a, b) => String(b.updated_at || b.created_at || b.last_used_at || '').localeCompare(String(a.updated_at || a.created_at || a.last_used_at || ''))).slice(0, 8);
+    const groupCounts = new Map();
+    this.nodes.forEach((item) => {
+      const key = item.group || item.category || item.type || 'other';
+      groupCounts.set(key, (groupCounts.get(key) || 0) + 1);
+    });
+    const groups = [...groupCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([key, count]) => ({ id: `group-${key}`, title: key, count }));
+    return { summary, noisy, fresh, groups };
+  }
+
+  renderActionList(host, title, items, detailFn, clickFn = (item) => this.selectNodeById(item.id)) {
+    if (!host) return;
+    host.innerHTML = `<div class="inspector-section-title">${this.escapeHtml(title)}</div>`;
+    if (!items.length) {
+      host.innerHTML += '<div class="microcopy">Inget att visa just nu.</div>';
+      return;
+    }
+    items.forEach((item) => {
+      const button = document.createElement('button');
+      button.className = 'row';
+      button.innerHTML = `<strong>${this.escapeHtml(item.title)}</strong><small>${this.escapeHtml(detailFn(item))}</small>`;
+      button.addEventListener('click', () => clickFn(item));
+      host.appendChild(button);
+    });
+  }
+
+  updateAnalysisWorkspace() {
+    const analysis = this.computeAnalysisData();
+    this.renderActionList(this.analysisSummaryEl, 'High signal', analysis.summary, (item) => item.meta || item.group || item.category || item.type);
+    this.renderActionList(this.analysisNoisyEl, 'Active / noisy', analysis.noisy, (item) => `score ${item.noisyScore} · ${item.category || item.group || item.type}`);
+    this.renderActionList(this.analysisFreshEl, 'Freshly updated', analysis.fresh, (item) => item.updated_at || item.created_at || item.last_used_at || item.type);
+    this.renderActionList(this.analysisGroupsEl, 'Heavy groups', analysis.groups, (item) => `${item.count} nodes`, (item) => {
+      const match = this.nodes.find((node) => (node.group || node.category || node.type) === item.title);
+      if (match) this.selectNodeById(match.id);
+    });
+  }
+
+  updateWindowPresetLayout() {
+    const detailsCard = this.detailsEl?.closest('.card');
+    const inspectorCard = this.inspectorShellEl?.closest('.card');
+    const relationsCard = this.relationsEl?.closest('.card');
+    const workspaceCard = this.workspaceEl?.closest('.card');
+    const analysisCard = this.analysisSummaryEl?.closest('.card');
+    if (!detailsCard || !inspectorCard || !relationsCard || !workspaceCard || !analysisCard) return;
+    [detailsCard, inspectorCard, relationsCard, workspaceCard, analysisCard].forEach((el) => { el.style.display = 'block'; });
+    if (this.windowPreset === 'workspace') {
+      analysisCard.style.display = 'none';
+      relationsCard.style.display = 'none';
+    } else if (this.windowPreset === 'analysis') {
+      workspaceCard.style.display = 'none';
+      relationsCard.style.display = 'none';
+    } else if (this.windowPreset === 'relations') {
+      workspaceCard.style.display = 'none';
+      analysisCard.style.display = 'none';
+    }
+  }
+
+  updateWorkspace(node = this.selectedNode || this.hoveredNode) {
+    if (!this.workspaceEl || !this.workspaceTitleEl) return;
+    this.workspaceEl.innerHTML = '';
+    if (!node) {
+      this.workspaceTitleEl.textContent = 'Workspace';
+      this.workspaceEl.innerHTML = '<div class="microcopy">Välj en nod för att öppna ett group/category-workspace.</div>';
+      return;
+    }
+    const key = node.group || node.category || node.type || 'workspace';
+    this.workspaceTitleEl.textContent = `${key} workspace`;
+    const related = this.nodes.filter((item) => item.id !== node.id && (item.group || item.category || item.type) === key).slice(0, 12);
+    const buckets = [
+      ['Memories', related.filter((x) => x.type === 'memory').slice(0, 4)],
+      ['Skills', related.filter((x) => x.type === 'skill').slice(0, 4)],
+      ['Profile', related.filter((x) => x.type === 'profile').slice(0, 4)],
+      ['Tools', related.filter((x) => x.type === 'tool').slice(0, 4)],
+    ];
+    buckets.forEach(([label, items]) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'inspector-rel-group';
+      wrap.innerHTML = `<div class="inspector-rel-group-head"><strong>${this.escapeHtml(label)}</strong><span class="inspector-badge">${items.length}</span></div>`;
+      if (!items.length) {
+        wrap.innerHTML += '<div class="microcopy">Inga noder i denna bucket just nu.</div>';
+      } else {
+        items.forEach((item) => {
+          const button = document.createElement('button');
+          button.className = 'row';
+          button.innerHTML = `<strong>${this.escapeHtml(item.title)}</strong><small>${this.escapeHtml(item.meta || item.category || item.type)}</small>`;
+          button.addEventListener('click', () => this.selectNodeById(item.id));
+          wrap.appendChild(button);
+        });
+      }
+      this.workspaceEl.appendChild(wrap);
+    });
+  }
+
+  updateInspectorPanel(item, related = []) {
+    if (!this.inspectorTitleEl || !this.inspectorTypeEl || !this.inspectorBodyEl || !this.inspectorMetaEl || !this.inspectorActionsEl || !this.inspectorRelationsEl) return;
+    const node = item || this.selectedNode || this.hoveredNode;
+    if (!node) {
+      this.inspectorTypeEl.textContent = 'Inspector';
+      this.inspectorTitleEl.textContent = 'Mind Cloud';
+      this.inspectorBodyEl.textContent = 'Välj en nod för metadata, snabbfokus och grupperade relationer.';
+      this.inspectorMetaEl.innerHTML = '';
+      this.inspectorActionsEl.innerHTML = '';
+      this.inspectorRelationsEl.innerHTML = '';
+      return;
+    }
+    const grouped = this.groupRelatedNodes(related);
+    const chips = [node.type, node.group, node.category, node.meta].filter(Boolean).slice(0, 6);
+    this.inspectorTypeEl.textContent = String(node.type || 'node').toUpperCase();
+    this.inspectorTitleEl.textContent = node.title || 'Untitled node';
+    this.inspectorBodyEl.textContent = node.text || 'Ingen extra beskrivning tillgänglig.';
+    this.inspectorMetaEl.innerHTML = `<div class="inspector-section-title">Metadata</div><div class="inspector-pill-grid">${chips.map((chip) => `<span class="inspector-pill">${this.escapeHtml(chip)}</span>`).join('')}<span class="inspector-pill ok">${related.length} linked</span><span class="inspector-pill">${grouped.length} groups</span></div>`;
+    this.inspectorActionsEl.innerHTML = '';
+    [
+      ['center', 'Center', () => { const mesh = this.nodeMap.get(node.id); if (mesh) this.controls.target.lerp(mesh.position, 0.4); }],
+      ['isolate', 'Isolate', () => this.setFocusFilter(this.focusFilterMode === 'isolate' ? 'all' : 'isolate')],
+      ['neighbors', 'Show neighbors', () => this.setFocusFilter(this.focusFilterMode === 'neighbors' ? 'all' : 'neighbors')],
+    ].forEach(([key, label, handler]) => {
+      const button = document.createElement('button');
+      button.className = 'inspector-action-btn';
+      if ((key === 'isolate' && this.focusFilterMode === 'isolate') || (key === 'neighbors' && this.focusFilterMode === 'neighbors')) button.classList.add('active');
+      button.textContent = label;
+      button.addEventListener('click', handler);
+      this.inspectorActionsEl.appendChild(button);
+    });
+    this.inspectorRelationsEl.innerHTML = `<div class="inspector-section-title">Relation groups</div>`;
+    if (!grouped.length) {
+      this.inspectorRelationsEl.innerHTML += '<div class="microcopy">Inga tydliga relationer ännu.</div>';
+      return;
+    }
+    grouped.forEach((group) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'inspector-rel-group';
+      wrap.innerHTML = `<div class="inspector-rel-group-head"><strong>${this.escapeHtml(group.label)}</strong><span class="inspector-badge">${group.items.length}</span></div>`;
+      group.items.slice(0, 4).forEach((rel) => {
+        const button = document.createElement('button');
+        button.className = 'inspector-rel-btn';
+        button.innerHTML = `<strong>${this.escapeHtml(rel.title)}</strong><small>${this.escapeHtml(rel.relation)} · ${this.escapeHtml(rel.meta || rel.group || rel.category || rel.type || '')}</small>`;
+        button.addEventListener('click', () => this.selectNodeById(rel.id));
+        wrap.appendChild(button);
+      });
+      this.inspectorRelationsEl.appendChild(wrap);
+    });
+  }
     const el = this.shadowRoot.getElementById('topskills');
     if (!this.data) return;
     el.innerHTML = '';
@@ -1075,7 +1438,20 @@ class HermesMindCloudPanel extends HTMLElement {
       <div class="stat"><div class="v">${this.data.meta.fact_count || 0}</div><div class="k">Facts</div></div>
       <div class="stat"><div class="v">${visibleCount}</div><div class="k">Visible nodes</div></div>
     `;
-    const item = this.selectedNode;
+    this.updateAnalysisWorkspace();
+    this.updateWindowPresetLayout();
+    const item = this.selectedNode || this.hoveredNode;
+    const related = item ? this.getRelatedNodes(item) : [];
+    this.updateWorkspace(item);
+    this.updateInspectorPanel(item, related);
+    this.relationsEl.innerHTML = related.length ? '' : '<div class="microcopy">Välj en nod för att se relationer.</div>';
+    related.slice(0, 10).forEach((rel) => {
+      const button = document.createElement('button');
+      button.className = 'row';
+      button.innerHTML = `<strong>${this.escapeHtml(rel.title)}</strong><small>${this.escapeHtml(rel.relation)} · ${this.escapeHtml(rel.meta || rel.group || rel.category || rel.type || '')}</small>`;
+      button.addEventListener('click', () => this.selectNodeById(rel.id));
+      this.relationsEl.appendChild(button);
+    });
     if (!item) return;
     const chips = [];
     if (item.group) chips.push(item.group);
