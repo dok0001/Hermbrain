@@ -49,7 +49,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         webcomponent_name=WEBCOMPONENT_NAME,
         sidebar_title=PANEL_TITLE,
         sidebar_icon=PANEL_ICON,
-        module_url=f"{STATIC_URL}/hermes-mind-cloud-panel.js",
+        module_url=f"{STATIC_URL}/hermes-mind-cloud-panel.js?v=0.1.33",
         config={
             "api_url": API_URL,
             "hermes_path": base_path,

@@ -1,11 +1,6 @@
 {
   "name": "Hermes Mind Cloud",
+  "filename": "hermes_mind_cloud_hacs_v0.1.33.zip",
   "homeassistant": "2024.6.0",
-  "render_readme": true,
-  "content_in_root": false,
-  "zip_release": true,
-  "filename": "hermes_mind_cloud_hacs_v0.1.32.zip",
-  "domains": [
-    "hermes_mind_cloud"
-  ]
+  "render_readme": true
 }
