@@ -18,9 +18,6 @@ class HermesMindCloudPanel extends HTMLElement {
     this.selectedNode = null;
     this.hoveredNode = null;
     this.searchQuery = '';
-    this.mobileTab = 'cloud';
-    this.mobileControlsOpen = false;
-    this.mobileChromeHidden = false;
     this.pointer = new THREE.Vector2();
     this.raycaster = new THREE.Raycaster();
     this.nodeObjects = [];
@@ -30,6 +27,8 @@ class HermesMindCloudPanel extends HTMLElement {
     this.clusterConfigs = this.createClusterConfigs();
     this.lastTime = performance.now();
     this.autoDrift = 0.00004;
+    this._connected = false;
+    this._pendingInitialLoad = false;
     this.render();
   }
 
@@ -39,11 +38,13 @@ class HermesMindCloudPanel extends HTMLElement {
     this.apiUrl = panel?.config?.api_url || '/api/hermes_mind_cloud/data';
     if (!this._loaded) {
       this._loaded = true;
-      this.loadData();
+      if (this._connected) this.loadData();
+      else this._pendingInitialLoad = true;
     }
   }
 
   connectedCallback() {
+    this._connected = true;
     this.sceneHost = this.shadowRoot.getElementById('scene');
     this.detailsEl = this.shadowRoot.getElementById('details');
     this.statsEl = this.shadowRoot.getElementById('stats');
@@ -51,13 +52,6 @@ class HermesMindCloudPanel extends HTMLElement {
     this.tooltipEl = this.shadowRoot.getElementById('tooltip');
     this.labelsEl = this.shadowRoot.getElementById('labels');
     this.searchEl = this.shadowRoot.getElementById('search');
-    this.layoutEl = this.shadowRoot.querySelector('.layout');
-    this.sceneWrapEl = this.shadowRoot.querySelector('.scene-wrap');
-    this.panelAsideEl = this.shadowRoot.querySelector('aside');
-    this.mobileTabsEl = this.shadowRoot.getElementById('mobiletabs');
-    this.mobileBottomNavEl = this.shadowRoot.getElementById('mobile-bottom-nav');
-    this.mobileControlsToggleEl = this.shadowRoot.getElementById('mobile-controls-toggle');
-    this.mobileControlsBodyEl = this.shadowRoot.getElementById('mobile-controls-body');
     this.focusListEl = this.shadowRoot.getElementById('focuslist');
     this.relationsEl = this.shadowRoot.getElementById('relations');
     this.workspaceEl = this.shadowRoot.getElementById('workspace');
@@ -84,11 +78,23 @@ class HermesMindCloudPanel extends HTMLElement {
     this.resizeObserver.observe(this.sceneHost);
     this.resize();
     this.installEvents();
-    this.updateMobileUI();
+    if (this._pendingInitialLoad || (this._loaded && !this.data)) {
+      this._pendingInitialLoad = false;
+      this.loadData();
+    } else if (this.data && this.graphRoot) {
+      this.rebuildScene();
+      this.updateControlPills();
+      this.applyVisibility();
+      this.updateFilters();
+      this.updateSidePanel();
+      this.updateFocusLane();
+      this.drawMiniMap();
+    }
     this.raf = requestAnimationFrame((t) => this.animate(t));
   }
 
   disconnectedCallback() {
+    this._connected = false;
     if (this.raf) cancelAnimationFrame(this.raf);
     if (this.resizeObserver) this.resizeObserver.disconnect();
     if (this.renderer) {
@@ -383,59 +389,6 @@ class HermesMindCloudPanel extends HTMLElement {
           margin-right: 8px;
           vertical-align: middle;
         }
-        .drawer-launch,
-        .mobile-tabs,
-        .mobile-bottom-nav {
-          display: none;
-        }
-        .mobile-controls-toggle {
-          border: 1px solid rgba(135, 180, 255, 0.16);
-          background: rgba(102, 153, 255, 0.08);
-          color: #dce7ff;
-          border-radius: 999px;
-          padding: 8px 12px;
-          font-weight: 700;
-          cursor: pointer;
-        }
-        .mobile-controls-toggle.active {
-          background: linear-gradient(180deg, rgba(63, 179, 255, 0.24), rgba(76, 97, 255, 0.16));
-          box-shadow: 0 0 20px rgba(61,184,255,0.12);
-        }
-        .mobile-controls-body.collapsed {
-          display: none;
-        }
-        .mobile-bottom-nav {
-          position: absolute;
-          left: 12px;
-          right: 12px;
-          bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
-          z-index: 6;
-          gap: 8px;
-          padding: 8px;
-          border-radius: 18px;
-          background: rgba(7, 12, 26, 0.74);
-          border: 1px solid rgba(135, 180, 255, 0.12);
-          backdrop-filter: blur(14px);
-          box-shadow: 0 14px 34px rgba(0,0,0,0.28);
-        }
-        .mobile-bottom-nav button,
-        .mobile-tabs button {
-          flex: 1 1 auto;
-          border: 1px solid rgba(135, 180, 255, 0.15);
-          background: rgba(102, 153, 255, 0.08);
-          color: #dce7ff;
-          border-radius: 999px;
-          min-height: 36px;
-          padding: 8px 10px;
-          font-weight: 700;
-          cursor: pointer;
-        }
-        .mobile-bottom-nav button.active,
-        .mobile-tabs button.active {
-          background: linear-gradient(180deg, rgba(63, 179, 255, 0.24), rgba(76, 97, 255, 0.16));
-          box-shadow: 0 0 20px rgba(61,184,255,0.12);
-        }
-
         .inspector-meta,
         .inspector-relations,
         .workspace-grid,
@@ -624,199 +577,6 @@ class HermesMindCloudPanel extends HTMLElement {
           .layout { grid-template-columns: 1fr; grid-template-rows: minmax(56vh, 60vh) auto; }
           .scene-wrap { border-right: 0; border-bottom: 1px solid var(--border); }
         }
-        @media (max-width: 980px) and (orientation: landscape) {
-          .layout { grid-template-columns: minmax(0, 1fr) minmax(280px, 38vw); grid-template-rows: 100dvh; }
-          .layout[data-mobile-tab="cloud"] { grid-template-columns: 1fr; }
-          .layout[data-mobile-tab="cloud"] aside { display: none; }
-          .layout[data-mobile-tab="snapshot"],
-          .layout[data-mobile-tab="relations"],
-          .layout[data-mobile-tab="focus"],
-          .layout[data-mobile-tab="workspace"],
-          .layout[data-mobile-tab="analysis"] { grid-template-columns: 1fr; }
-          .layout[data-mobile-tab="snapshot"] .scene-wrap,
-          .layout[data-mobile-tab="relations"] .scene-wrap,
-          .layout[data-mobile-tab="focus"] .scene-wrap,
-          .layout[data-mobile-tab="workspace"] .scene-wrap,
-          .layout[data-mobile-tab="analysis"] .scene-wrap { display: none; }
-          .scene-wrap { min-height: 100dvh; border-bottom: 0; border-right: 1px solid var(--border); }
-          .hud { width: min(420px, calc(100% - 16px)); margin: 8px; }
-          .headline { padding: 9px 10px; border-radius: 14px; }
-          .sub { display: none; }
-          .drawer-launch, .mobile-tabs, .mobile-bottom-nav { display: flex; }
-          .mobile-tabs { position: sticky; top: 0; z-index: 2; gap: 6px; padding-bottom: 6px; overflow-x: auto; scrollbar-width: none; background: linear-gradient(180deg, rgba(4,7,16,0.96), rgba(4,7,16,0.72)); }
-          .mobile-tabs::-webkit-scrollbar { display: none; }
-          .mobile-bottom-nav { left: 10px; right: 10px; bottom: calc(env(safe-area-inset-bottom, 0px) + 6px); }
-          .mobile-controls-body.collapsed { display: none; }
-          .controls, .filters, .legend { gap: 6px; margin-top: 8px; }
-          .controls { display: flex; flex-direction: column; }
-          .control-group, .filters, .legend { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-          .control-group::-webkit-scrollbar, .filters::-webkit-scrollbar, .legend::-webkit-scrollbar { display: none; }
-          button.pill, .filters button, .focus-row, .row { flex: 0 0 auto; padding: 7px 9px; font-size: 12px; }
-          aside { padding: 8px; gap: 8px; overflow-y: auto; }
-          aside[data-mobile-tab="cloud"] .card[data-panel] { display: none; }
-          aside .card[data-panel] { display: none; }
-          aside[data-mobile-tab="snapshot"] .card[data-panel="snapshot"],
-          aside[data-mobile-tab="relations"] .card[data-panel="relations"],
-          aside[data-mobile-tab="focus"] .card[data-panel="focus"],
-          aside[data-mobile-tab="workspace"] .card[data-panel="workspace"],
-          aside[data-mobile-tab="analysis"] .card[data-panel="analysis"] { display: block; }
-          .minimap-wrap { right: 10px; bottom: 64px; transform: scale(0.72); transform-origin: bottom right; }
-        }
-        @media (max-width: 720px) {
-          .layout { grid-template-rows: minmax(68dvh, 76dvh) auto; }
-          .layout[data-mobile-tab="cloud"] { grid-template-rows: 1fr; }
-          .layout[data-mobile-tab="cloud"] aside { display: none; }
-          .layout[data-mobile-tab="snapshot"],
-          .layout[data-mobile-tab="relations"],
-          .layout[data-mobile-tab="focus"],
-          .layout[data-mobile-tab="workspace"],
-          .layout[data-mobile-tab="analysis"] { grid-template-rows: auto; }
-          .layout[data-mobile-tab="snapshot"] .scene-wrap,
-          .layout[data-mobile-tab="relations"] .scene-wrap,
-          .layout[data-mobile-tab="focus"] .scene-wrap,
-          .layout[data-mobile-tab="workspace"] .scene-wrap,
-          .layout[data-mobile-tab="analysis"] .scene-wrap { display: none; }
-          .drawer-launch,
-          .mobile-tabs,
-          .mobile-bottom-nav { display: flex; }
-          .hud {
-            width: calc(100% - 12px);
-            margin: 6px;
-          }
-          .headline {
-            padding: 9px 10px;
-            border-radius: 14px;
-            background: linear-gradient(180deg, rgba(9,14,31,0.68), rgba(9,14,31,0.18));
-          }
-          .eyebrow {
-            font-size: 10px;
-            margin-bottom: 4px;
-          }
-          h1 {
-            font-size: 20px;
-          }
-          .sub {
-            display: none;
-          }
-          .drawer-launch { margin-top: 8px; }
-          .mobile-controls-body { margin-top: 8px; }
-          .controls,
-          .filters,
-          .legend {
-            gap: 8px;
-            margin-top: 8px;
-          }
-          .controls {
-            display: flex;
-            flex-direction: column;
-          }
-          .control-group,
-          .filters,
-          .legend {
-            display: flex;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            scrollbar-width: none;
-            -webkit-overflow-scrolling: touch;
-          }
-          .control-group::-webkit-scrollbar,
-          .filters::-webkit-scrollbar,
-          .legend::-webkit-scrollbar {
-            display: none;
-          }
-          button.pill,
-          .filters button,
-          .focus-row,
-          .row {
-            flex: 0 0 auto;
-            padding: 7px 9px;
-            font-size: 12px;
-          }
-          .search {
-            min-height: 36px;
-            padding: 0 10px;
-          }
-          .search input {
-            font-size: 16px;
-          }
-          .legend {
-            font-size: 11px;
-          }
-          .mobile-tabs {
-            position: sticky;
-            top: 0;
-            z-index: 2;
-            gap: 6px;
-            padding-bottom: 6px;
-            overflow-x: auto;
-            scrollbar-width: none;
-            background: linear-gradient(180deg, rgba(4,7,16,0.96), rgba(4,7,16,0.72));
-          }
-          .mobile-tabs::-webkit-scrollbar { display: none; }
-          aside[data-mobile-tab="cloud"] {
-            display: none;
-          }
-          aside .card[data-panel] {
-            display: none;
-          }
-          aside[data-mobile-tab="snapshot"] .card[data-panel="snapshot"],
-          aside[data-mobile-tab="relations"] .card[data-panel="relations"],
-          aside[data-mobile-tab="focus"] .card[data-panel="focus"],
-          aside[data-mobile-tab="workspace"] .card[data-panel="workspace"],
-          aside[data-mobile-tab="analysis"] .card[data-panel="analysis"] {
-            display: block;
-          }
-          .minimap-wrap {
-            right: 10px;
-            bottom: 62px;
-            transform: scale(0.7);
-            transform-origin: bottom right;
-          }
-          aside {
-            padding: 10px;
-            gap: 10px;
-          }
-          .card {
-            padding: 12px;
-            border-radius: 14px;
-          }
-        }
-        @media (max-width: 480px) {
-          .hud {
-            width: calc(100% - 10px);
-            margin: 5px;
-          }
-          .headline {
-            padding: 8px 9px;
-            border-radius: 12px;
-          }
-          h1 {
-            font-size: 18px;
-          }
-          .mobile-bottom-nav,
-          .mobile-tabs { gap: 5px; }
-          .mobile-bottom-nav button,
-          .mobile-tabs button,
-          .mobile-controls-toggle,
-          button.pill,
-          .filters button {
-            min-height: 34px;
-            padding: 7px 8px;
-            font-size: 11px;
-          }
-          .minimap-wrap {
-            right: 6px;
-            bottom: 58px;
-            transform: scale(0.62);
-          }
-          aside {
-            padding: 8px;
-            gap: 8px;
-          }
-          .card {
-            padding: 10px;
-          }
-        }
       </style>
       <div class="layout">
         <div class="scene-wrap">
@@ -832,26 +592,21 @@ class HermesMindCloudPanel extends HTMLElement {
               <div class="eyebrow">Hermes / Neural Memory Topology</div>
               <h1>Mind Cloud</h1>
               <div class="sub">Cinematic memory observatory med constellation- och timeline-läge, glow-trails mellan noder, zonkartor och mini-map. Dra för att rotera, använd sök för att fokusera och klicka för att låsa en nod.</div>
-              <div class="drawer-launch">
-                <button class="mobile-controls-toggle" id="mobile-controls-toggle" type="button">⚙️ Kontroller</button>
+              <div class="controls">
+                <label class="search">
+                  <input id="search" type="search" placeholder="Sök minnen, skills, profiler, verktyg..." />
+                </label>
+                <div class="control-group control-pills" id="windowpresets"></div>
+                <div class="control-group control-pills" id="viewmodes"></div>
+                <div class="control-group control-pills" id="labelmodes"></div>
+                <div class="control-group control-pills" id="motionmodes"></div>
               </div>
-              <div class="mobile-controls-body" id="mobile-controls-body">
-                <div class="controls">
-                  <label class="search">
-                    <input id="search" type="search" placeholder="Sök minnen, skills, profiler, verktyg..." />
-                  </label>
-                  <div class="control-group control-pills" id="windowpresets"></div>
-                  <div class="control-group control-pills" id="viewmodes"></div>
-                  <div class="control-group control-pills" id="labelmodes"></div>
-                  <div class="control-group control-pills" id="motionmodes"></div>
-                </div>
-                <div class="filters" id="filters"></div>
-                <div class="legend">
-                  <span class="memory">Memory</span>
-                  <span class="skill">Skills</span>
-                  <span class="profile">Profile</span>
-                  <span class="tool">Tools</span>
-                </div>
+              <div class="filters" id="filters"></div>
+              <div class="legend">
+                <span class="memory">Memory</span>
+                <span class="skill">Skills</span>
+                <span class="profile">Profile</span>
+                <span class="tool">Tools</span>
               </div>
             </div>
           </div>
@@ -859,28 +614,14 @@ class HermesMindCloudPanel extends HTMLElement {
             <canvas id="minimap" width="180" height="180"></canvas>
             <div class="minimap-copy">Cluster map / live focus radar</div>
           </div>
-          <div class="mobile-bottom-nav" id="mobile-bottom-nav">
-            <button type="button" data-bottom-tab="cloud">Moln</button>
-            <button type="button" data-bottom-tab="snapshot">Snapshot</button>
-            <button type="button" data-bottom-tab="relations">Relationer</button>
-            <button type="button" data-bottom-tab="workspace">Workspace</button>
-            <button type="button" data-bottom-tab="analysis">Analys</button>
-          </div>
         </div>
         <aside>
-          <div class="mobile-tabs" id="mobiletabs">
-            <button type="button" data-tab="cloud">Moln</button>
-            <button type="button" data-tab="snapshot">Snapshot</button>
-            <button type="button" data-tab="relations">Relationer</button>
-            <button type="button" data-tab="workspace">Workspace</button>
-            <button type="button" data-tab="analysis">Analys</button>
-          </div>
-          <div class="card" data-panel="snapshot">
+          <div class="card">
             <h2>Live snapshot</h2>
             <div class="stats" id="stats"></div>
           </div>
-          <div class="card" id="details" data-panel="snapshot"></div>
-          <div class="card" id="inspector-shell" data-panel="focus">
+          <div class="card" id="details"></div>
+          <div class="card" id="inspector-shell">
             <div class="detail-type" id="inspector-type">Inspector</div>
             <h3 id="inspector-title">Mind Cloud</h3>
             <div class="detail-body" id="inspector-body">Välj en nod för metadata, snabbfokus och grupperade relationer.</div>
@@ -888,22 +629,22 @@ class HermesMindCloudPanel extends HTMLElement {
             <div class="inspector-actions" id="inspector-actions"></div>
             <div class="inspector-relations" id="inspector-relations"></div>
           </div>
-          <div class="card" data-panel="focus">
+          <div class="card">
             <h3>Focus lane</h3>
             <div class="microcopy">Viktigaste synliga noderna just nu. Påverkas av filter, sök, label-läge och vald vy.</div>
             <div class="focus-grid" id="focuslist"></div>
           </div>
-          <div class="card" data-panel="relations">
+          <div class="card">
             <h3>Relations</h3>
             <div class="microcopy">Närliggande och semantiskt liknande noder runt nuvarande fokus.</div>
             <div class="list" id="relations"></div>
           </div>
-          <div class="card" data-panel="workspace">
+          <div class="card">
             <h3 id="workspace-title">Workspace</h3>
             <div class="microcopy">Mind Cloud-motsvarigheten till rooms: fokus per group/category och relaterade kluster.</div>
             <div class="workspace-grid" id="workspace"></div>
           </div>
-          <div class="card" data-panel="analysis">
+          <div class="card">
             <h3>Analysis</h3>
             <div class="microcopy">Axon-inspirerad analys av högsignal-noder, färska minnen och tyngsta grupper.</div>
             <div class="analysis-grid">
@@ -913,7 +654,7 @@ class HermesMindCloudPanel extends HTMLElement {
               <div class="list" id="analysis-groups"></div>
             </div>
           </div>
-          <div class="card" data-panel="workspace">
+          <div class="card">
             <h3>Top skills</h3>
             <div class="list" id="topskills"></div>
           </div>
@@ -1039,6 +780,10 @@ class HermesMindCloudPanel extends HTMLElement {
         this.data = await response.json();
       }
       this.buildNodes();
+      if (!this.graphRoot || !this.clusterRoot || !this.sceneHost) {
+        this._pendingInitialLoad = true;
+        return;
+      }
       this.rebuildScene();
       this.updateControlPills();
       this.applyVisibility();
@@ -1054,7 +799,10 @@ class HermesMindCloudPanel extends HTMLElement {
       this.updateFocusLane();
       this.drawMiniMap();
     } catch (err) {
-      this.detailsEl.innerHTML = `<h3>Could not load data</h3><div class="detail-body">${this.escapeHtml(String(err?.message || err))}</div>`;
+      if (this.detailsEl) {
+        this.detailsEl.innerHTML = `<h3>Could not load data</h3><div class="detail-body">${this.escapeHtml(String(err?.message || err))}</div>`;
+      }
+      console.error('Hermes Mind Cloud loadData failed', err);
     }
   }
 
@@ -1286,48 +1034,6 @@ class HermesMindCloudPanel extends HTMLElement {
       this.updateFocusLane();
       this.updateSidePanel();
     });
-    this.mobileControlsToggleEl?.addEventListener('click', () => {
-      this.mobileControlsOpen = !this.mobileControlsOpen;
-      this.updateMobileUI();
-    });
-    const bindTab = (tab) => {
-      this.mobileTab = tab || 'cloud';
-      this.mobileControlsOpen = false;
-      this.updateMobileUI();
-    };
-    this.mobileTabsEl?.querySelectorAll('button[data-tab]').forEach((button) => {
-      button.addEventListener('click', () => bindTab(button.dataset.tab));
-    });
-    this.mobileBottomNavEl?.querySelectorAll('button[data-bottom-tab]').forEach((button) => {
-      button.addEventListener('click', () => bindTab(button.dataset.bottomTab));
-    });
-  }
-
-  isMobileLayout() {
-    const width = this.width || window.innerWidth || 0;
-    return width <= 720 || (width <= 980 && window.matchMedia('(orientation: landscape)').matches);
-  }
-
-  updateMobileUI() {
-    const mobile = this.isMobileLayout();
-    this.mobileControlsBodyEl?.classList.toggle('collapsed', mobile && !this.mobileControlsOpen);
-    this.mobileControlsToggleEl?.classList.toggle('active', mobile && this.mobileControlsOpen);
-    this.mobileBottomNavEl && (this.mobileBottomNavEl.style.display = mobile ? 'flex' : 'none');
-    if (this.panelAsideEl) {
-      if (mobile) this.panelAsideEl.setAttribute('data-mobile-tab', this.mobileTab || 'cloud');
-      else this.panelAsideEl.removeAttribute('data-mobile-tab');
-    }
-    if (this.layoutEl) {
-      if (mobile) this.layoutEl.setAttribute('data-mobile-tab', this.mobileTab || 'cloud');
-      else this.layoutEl.removeAttribute('data-mobile-tab');
-    }
-    this.sceneWrapEl?.setAttribute('data-mobile-mode', mobile ? (this.mobileTab || 'cloud') : 'desktop');
-    this.mobileTabsEl?.querySelectorAll('button[data-tab]').forEach((button) => {
-      button.classList.toggle('active', mobile && button.dataset.tab === (this.mobileTab || 'cloud'));
-    });
-    this.mobileBottomNavEl?.querySelectorAll('button[data-bottom-tab]').forEach((button) => {
-      button.classList.toggle('active', mobile && button.dataset.bottomTab === (this.mobileTab || 'cloud'));
-    });
   }
 
   onPointerMove(ev) {
@@ -1362,11 +1068,6 @@ class HermesMindCloudPanel extends HTMLElement {
     this.applyVisibility();
     this.updateSidePanel();
     this.updateFocusLane();
-    if (this.isMobileLayout()) {
-      this.mobileTab = 'focus';
-      this.mobileControlsOpen = false;
-      this.updateMobileUI();
-    }
     const mesh = this.nodeMap.get(this.selectedNode.id);
     if (mesh) this.controls.target.lerp(mesh.position, 0.35);
   }
@@ -1385,11 +1086,6 @@ class HermesMindCloudPanel extends HTMLElement {
     this.applyVisibility();
     this.updateSidePanel();
     this.updateFocusLane();
-    if (this.isMobileLayout()) {
-      this.mobileTab = 'focus';
-      this.mobileControlsOpen = false;
-      this.updateMobileUI();
-    }
     this.controls.target.lerp(mesh.position, 0.4);
   }
 
@@ -1413,11 +1109,6 @@ class HermesMindCloudPanel extends HTMLElement {
       ['relations', 'Relations'],
     ], (value) => {
       this.windowPreset = value;
-      if (this.isMobileLayout()) {
-        this.mobileTab = value === 'overview' ? 'cloud' : value;
-        this.mobileControlsOpen = false;
-        this.updateMobileUI();
-      }
       this.updateSidePanel();
     });
 
@@ -1928,7 +1619,6 @@ class HermesMindCloudPanel extends HTMLElement {
     this.camera.aspect = rect.width / rect.height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(rect.width, rect.height, false);
-    this.updateMobileUI();
     this.drawMiniMap();
   }
 
@@ -2036,4 +1726,6 @@ class HermesMindCloudPanel extends HTMLElement {
   }
 }
 
-customElements.define('hermes-mind-cloud-panel', HermesMindCloudPanel);
+if (!customElements.get('hermes-mind-cloud-panel')) {
+  customElements.define('hermes-mind-cloud-panel', HermesMindCloudPanel);
+}
