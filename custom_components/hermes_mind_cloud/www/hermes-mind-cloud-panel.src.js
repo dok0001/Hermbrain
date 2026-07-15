@@ -560,6 +560,119 @@ class HermesMindCloudPanel extends HTMLElement {
           .layout { grid-template-columns: 1fr; grid-template-rows: minmax(56vh, 60vh) auto; }
           .scene-wrap { border-right: 0; border-bottom: 1px solid var(--border); }
         }
+        @media (max-width: 720px) {
+          .layout { grid-template-rows: minmax(64dvh, 72dvh) auto; }
+          .hud {
+            width: calc(100% - 12px);
+            margin: 6px;
+          }
+          .headline {
+            padding: 10px 11px;
+            border-radius: 14px;
+            background: linear-gradient(180deg, rgba(9,14,31,0.68), rgba(9,14,31,0.24));
+          }
+          .eyebrow {
+            font-size: 10px;
+            margin-bottom: 4px;
+          }
+          h1 {
+            font-size: 20px;
+          }
+          .sub {
+            font-size: 11px;
+            line-height: 1.28;
+            margin-top: 6px;
+          }
+          .controls,
+          .filters,
+          .legend {
+            gap: 8px;
+            margin-top: 10px;
+          }
+          .controls {
+            display: flex;
+            flex-direction: column;
+          }
+          .control-group,
+          .filters,
+          .legend {
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+          }
+          .control-group::-webkit-scrollbar,
+          .filters::-webkit-scrollbar,
+          .legend::-webkit-scrollbar {
+            display: none;
+          }
+          button.pill,
+          .filters button,
+          .focus-row,
+          .row {
+            flex: 0 0 auto;
+            padding: 7px 9px;
+            font-size: 12px;
+          }
+          .search {
+            min-height: 36px;
+            padding: 0 10px;
+          }
+          .search input {
+            font-size: 16px;
+          }
+          .legend {
+            font-size: 11px;
+          }
+          .minimap-wrap {
+            right: 10px;
+            bottom: 10px;
+            transform: scale(0.78);
+          }
+          aside {
+            padding: 10px;
+            gap: 10px;
+          }
+          .card {
+            padding: 12px;
+            border-radius: 14px;
+          }
+        }
+        @media (max-width: 480px) {
+          .hud {
+            width: calc(100% - 10px);
+            margin: 5px;
+          }
+          .headline {
+            padding: 8px 9px;
+            border-radius: 12px;
+          }
+          h1 {
+            font-size: 18px;
+          }
+          .sub {
+            display: none;
+          }
+          .controls,
+          .filters,
+          .legend {
+            margin-top: 8px;
+            gap: 6px;
+          }
+          .minimap-wrap {
+            right: 6px;
+            bottom: 6px;
+            transform: scale(0.68);
+          }
+          aside {
+            padding: 8px;
+            gap: 8px;
+          }
+          .card {
+            padding: 10px;
+          }
+        }
       </style>
       <div class="layout">
         <div class="scene-wrap">
