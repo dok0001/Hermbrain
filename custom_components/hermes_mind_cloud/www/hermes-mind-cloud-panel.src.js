@@ -627,6 +627,17 @@ class HermesMindCloudPanel extends HTMLElement {
         @media (max-width: 980px) and (orientation: landscape) {
           .layout { grid-template-columns: minmax(0, 1fr) minmax(280px, 38vw); grid-template-rows: 100dvh; }
           .layout[data-mobile-tab="cloud"] { grid-template-columns: 1fr; }
+          .layout[data-mobile-tab="cloud"] aside { display: none; }
+          .layout[data-mobile-tab="snapshot"],
+          .layout[data-mobile-tab="relations"],
+          .layout[data-mobile-tab="focus"],
+          .layout[data-mobile-tab="workspace"],
+          .layout[data-mobile-tab="analysis"] { grid-template-columns: 1fr; }
+          .layout[data-mobile-tab="snapshot"] .scene-wrap,
+          .layout[data-mobile-tab="relations"] .scene-wrap,
+          .layout[data-mobile-tab="focus"] .scene-wrap,
+          .layout[data-mobile-tab="workspace"] .scene-wrap,
+          .layout[data-mobile-tab="analysis"] .scene-wrap { display: none; }
           .scene-wrap { min-height: 100dvh; border-bottom: 0; border-right: 1px solid var(--border); }
           .hud { width: min(420px, calc(100% - 16px)); margin: 8px; }
           .headline { padding: 9px 10px; border-radius: 14px; }
@@ -653,6 +664,18 @@ class HermesMindCloudPanel extends HTMLElement {
         }
         @media (max-width: 720px) {
           .layout { grid-template-rows: minmax(68dvh, 76dvh) auto; }
+          .layout[data-mobile-tab="cloud"] { grid-template-rows: 1fr; }
+          .layout[data-mobile-tab="cloud"] aside { display: none; }
+          .layout[data-mobile-tab="snapshot"],
+          .layout[data-mobile-tab="relations"],
+          .layout[data-mobile-tab="focus"],
+          .layout[data-mobile-tab="workspace"],
+          .layout[data-mobile-tab="analysis"] { grid-template-rows: auto; }
+          .layout[data-mobile-tab="snapshot"] .scene-wrap,
+          .layout[data-mobile-tab="relations"] .scene-wrap,
+          .layout[data-mobile-tab="focus"] .scene-wrap,
+          .layout[data-mobile-tab="workspace"] .scene-wrap,
+          .layout[data-mobile-tab="analysis"] .scene-wrap { display: none; }
           .drawer-launch,
           .mobile-tabs,
           .mobile-bottom-nav { display: flex; }
