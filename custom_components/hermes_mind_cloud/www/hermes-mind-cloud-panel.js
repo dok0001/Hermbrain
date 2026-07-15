@@ -1408,8 +1408,10 @@ class HermesMindCloudPanel extends HTMLElement {
       this.inspectorRelationsEl.appendChild(wrap);
     });
   }
+
+  updateTopSkills() {
     const el = this.shadowRoot.getElementById('topskills');
-    if (!this.data) return;
+    if (!el || !this.data) return;
     el.innerHTML = '';
     this.data.skills.slice(0, 8).forEach((skill) => {
       const button = document.createElement('button');
